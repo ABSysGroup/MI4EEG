@@ -370,7 +370,7 @@ class Marker(object):
     Marker(marker_file): where header_file is the instance of the marker file
 
     Attributes:
-    self.segments: lists containing information on the data segmentation. Each list represents
+    self.segments: dictionaries containing information on the data segmentation. Each list represents
         a data segment, containing the following information:
             start_pos: the starting position (in data points) of the segment
             audio_start_pos: the starting position (in data points) where the audio starts playing
@@ -440,8 +440,10 @@ class Marker(object):
                 if is_subject_answering == True and int(tidy_line[2][1:]) <= 3:
                     end_pos = tidy_line[3]
                     correct = int(tidy_line[2][1:])
-                    self.segments.append([start_pos, audio_start_pos, audio_end_pos,
-                                          end_pos, face_stim, audio_stim, correct])
+                    segment_dict = {"start": start_pos, "astart": audio_start_pos, "aend": audio_end_pos,
+                                    "end": end_pos, "face": face_stim, "audio": audio_stim, "correct": correct}
+                    self.segments.append(segment_dict)
+                    del segment_dict
                     is_subject_answering = False
 
         self.segments_number = len(self.segments)
@@ -459,8 +461,8 @@ class Marker(object):
                 except:
                     problematic_idx.append(idx)
                     logging.warning("Trial with index " + str(idx) + " has face_ids that do not match between both files. " +
-                                    "EXP: " + str(trial["face_id"]) + " MARK: " + str(self.segments[idx][4]) + ". Deleting the entry from the file with most entries.")
-                    if difference > 0 and subject_object.trials[idx+1]["face_id"] == self.segments[idx][4]:
+                                    "EXP: " + str(trial["face_id"]) + " MARK: " + str(self.segments[idx]["face"]) + ". Deleting the entry from the file with most entries.")
+                    if difference > 0 and subject_object.trials[idx+1]["face_id"] == self.segments[idx]["face"]:
                         logging.warning("Corrected succesfully")
                         del subject_object.trials[idx]
                         difference -= 1
@@ -491,9 +493,8 @@ class DataEEG(object):
     def __init__(self, data_file):
         self.channels = {}
         for line in data_file:
-            key, data = line.split()[0], \
-                np.array([float(item)
-                          for item in line[7:-1].replace(",", ".").split()])
+            key = line.split()[0]
+            data = np.array([float(item) for item in line.replace(",", ".").split()[1:]])
             self.channels[key] = data
 
     def segment_data(self, marker_object, release=True):
@@ -510,7 +511,7 @@ class DataEEG(object):
         for segment in marker_object.segments:
             segment_data = {}
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment[1]:segment[2]]
+                segment_data[key] = self.channels[key][segment["start"]:segment["end"]]
             self.data_segments.append(segment_data)
         if release == True:
             del self.channels
@@ -697,27 +698,27 @@ def segment_all_data(data_folder_path, segments_folder_path):
     logging.debug("Start with the segment_all_data function")
     logging.debug("Define the file path lists according to the folder paths")
 
-    if "\\" in data_folder_path:
-        header_file_paths = glob.glob(data_folder_path + r"\*.vhdr")
-        marker_file_paths = glob.glob(data_folder_path + r"\*.vmrk")
-        data_file_paths = glob.glob(data_folder_path + r"\*.dat")
-        experiment_file_paths = glob.glob(data_folder_path + r"\*_ExpSynt.txt")
+    if "\\" in data_folder_path: # Adapt file paths to Windows
+        header_file_paths = glob.glob(data_folder_path + r"*.vhdr")
+        marker_file_paths = glob.glob(data_folder_path + r"*.vmrk")
+        data_file_paths = glob.glob(data_folder_path + r"*.dat")
+        experiment_file_paths = glob.glob(data_folder_path + r"*_ExpSynt.txt")
         #audio_file_paths = glob.glob(multimedia_folder_path + r"\*.wav")
         #picture_file_paths = glob.glob(multimedia_folder_path + r"\*.jpg")
-    else:
+    else: # Sort the list for linux
         # Here I sort the lists because if not it will raise an error later
-        header_file_paths = glob.glob(data_folder_path + "/*.vhdr")
+        header_file_paths = glob.glob(data_folder_path + "*.vhdr")
         header_file_paths.sort()
-        marker_file_paths = glob.glob(data_folder_path + "/*.vmrk")
+        marker_file_paths = glob.glob(data_folder_path + "*.vmrk")
         marker_file_paths.sort()
-        data_file_paths = glob.glob(data_folder_path + "/*.dat")
+        data_file_paths = glob.glob(data_folder_path + "*.dat")
         data_file_paths.sort()
-        experiment_file_paths = glob.glob(data_folder_path + "/*_ExpSynt.txt")
+        experiment_file_paths = glob.glob(data_folder_path + "*_ExpSynt.txt")
         experiment_file_paths.sort()
 
     logging.debug("Start iterating over all the files \n\n")
 
-    for j in range(len(header_file_paths)):
+    for j in range(len(header_file_paths)): # Start processing by subject
 
         logging.info("Starting to process file " +
                      os.path.split(header_file_paths[j])[-1])
@@ -765,18 +766,11 @@ def segment_all_data(data_folder_path, segments_folder_path):
 
         logging.debug("Define and create the folder the segmented data files")
 
-        if not "segmentos" in os.listdir(data_folder_path):
+        # Try to create segments' folder, will return error if already exists
+        try:
             os.mkdir(segments_folder_path)
-
-        # Get the number of the last segment file
-        # filelist = [os.path.split(item)[-1] for
-        #             item in glob.glob(segments_folder_path + r"\*.dat")]
-        # if len(filelist) > 0:
-        #     numlist = [int(item[19:].split(".")[0]) for item in filelist]
-        #     numlist.sort()
-        #     lastnum = numlist[-1]
-        # else:
-        #     lastnum = 0
+        except:
+            print("Segment folder already existed, continuing")
 
         logging.debug("Starting to create files containing the segments")
 
@@ -787,11 +781,11 @@ def segment_all_data(data_folder_path, segments_folder_path):
             else:
                 segment_file = open(segments_folder_path + "/sujeto_" + str(subject.trials[0]["subject_id"]) +
                                     "_segmento_" + str(i+1) + ".dat", "w")
-            face_code = marker.segments[i][4]
-            audio_code = marker.segments[i][5]
+            face_code = marker.segments[i]["face"]
+            audio_code = marker.segments[i]["audio"]
             audio_file_name = subject.trials[i]["soundfile"]
-            audio_start = marker.segments[i][1] - marker.segments[i][0]
-            audio_end = marker.segments[i][2] - marker.segments[i][0]
+            audio_start = marker.segments[i]["astart"] - marker.segments[i]["start"]
+            audio_end = marker.segments[i]["aend"] - marker.segments[i]["start"]
             metadata = "FaceCode: " + str(face_code) + " AudioCode: " + \
                 str(audio_code) + " AudioFile: " + str(audio_file_name) + \
                 " AudioStart: " + str(audio_start) + " AudioEnd: " + \
@@ -811,9 +805,9 @@ def segment_all_data(data_folder_path, segments_folder_path):
 if __name__ == "__main__":
 
     # File paths should be defined differently whether running windows or other OS
-    data_folder_path = "../DATA_TFM/EEG_Segmentado_filtrado_0.1-100_sin_artefactos"
-    multimedia_folder_path = "../DATA_TFM/Stimuli"
-    segments_folder_path = data_folder_path + "/segmentos"
+    data_folder_path = "../raw_Data/"
+    multimedia_folder_path = "../raw_Data/Stimuli/"
+    segments_folder_path = "../Data/"
 
     if sys.platform[:3] == "win":
         data_folder_path = data_folder_path.replace("/", "\\")
