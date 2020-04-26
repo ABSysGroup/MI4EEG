@@ -494,7 +494,8 @@ class DataEEG(object):
         self.channels = {}
         for line in data_file:
             key = line.split()[0]
-            data = np.array([float(item) for item in line.replace(",", ".").split()[1:]])
+            data = np.array([float(item)
+                             for item in line.replace(",", ".").split()[1:]])
             self.channels[key] = data
 
     def segment_data(self, marker_object, release=True):
@@ -511,7 +512,8 @@ class DataEEG(object):
         for segment in marker_object.segments:
             segment_data = {}
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]:segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]
+                    :segment["end"]]
             self.data_segments.append(segment_data)
         if release == True:
             del self.channels
@@ -575,7 +577,7 @@ class Subject(object):
         self.trials_number = int(len(self.trials))
 
 
-class AudioStims(object):
+class AudioStim(object):
     """
     A class meant to contain the audio files of the sentences
     the subject hear during the experiment.
@@ -597,19 +599,21 @@ class AudioStims(object):
         (to make some space in the memory).
     """
 
-    def __init__(self, audio_file_paths):
-        self.files = {}
-        self.rates = {}
-        for audio_path in audio_file_paths:
-            rate, data = wavfile.read(audio_path)
-            self.files[os.path.split(audio_path)[-1]] = data
-            self.rates[os.path.split(audio_path)[-1]] = rate
-        self.files_number = len(list(self.files.keys()))
+    def __init__(self, audio_file_path):
+        self.rate, self.data = wavfile.read(audio_file_path)
 
-    def amplitude_envelope(self, release=True):
-        self.envelope = {}
-        for name, audio in self.files.items():
-            self.envelope[name] = np.abs(snl.hilbert(audio))
+    def downsample(self, factor):
+        """ Downsample the audio data by a factor of factor """
+
+        logging.debug("Downsampling audio signal...")
+        self.data = self.data[::factor]
+        #self.data = snl.decimate(self.data, factor)
+        self.rate = self.rate/factor
+        logging.debug("Signal downsampled.")
+
+    def save(self, path):
+        """ Save to path .wav """
+        wavfile.write(path, int(self.rate), self.data)
 
 
 class Segment(object):
@@ -693,19 +697,74 @@ class Segment(object):
             del(self.channels[reference_label])
 
 
+class MutualInformation(object):
+    def __init__(self, segment_path, mode, discretization, bands_dict, comments):
+        self.segment = Segment(segment_path)
+        self.subject = self.segment.segment_name.split("_")[1]
+        self.segment_number = self.segment.segment_name.split("_")[3]
+
+        self.face_code = self.segment.face_code
+        if self.face_code[0] == 1:
+            self.face_nonscrambled = True
+        elif self.face_code[0] == 2:
+            self.face_nonscrambled = False
+        else:
+            self.face_nonscrambled = "error"
+
+        self.audio_code = self.segment.audio_code
+        if self.audio_code[0] == 1:
+            self.audio_corr = True
+        elif self.audio_code[0] == 2:
+            self.audio_corr = False
+        else:
+            self.audio_corr = "error"
+        self.audio_file = self.segment.audio_file
+
+        self.channels_labels = list(self.segment.channels.keys())
+        self.mode = mode
+        self.bands_dict = bands_dict
+        self.discretization = discretization
+        self.comments = comments
+
+    def compute(self, audio_data, audio_fs, sub_ref=False):
+        self.segment.dump_eyes()
+        self.segment.crop_audio_trial(inplace=True)
+        if sub_ref:
+            self.segment.subtract_reference(rm_ref=False)
+        self.segment.bandpass_data(250, self.bands_dict, orden=3)
+
+        # Calculate phases and so on
+        #fs, audio_data = wavfile.read(speech_audio_path)
+        inst_phase_aud = np.angle(snl.hilbert(audio_data))
+        hist_audio_phs, _ = np.histogram(
+            inst_phase_aud, bins=self.discretization)
+
+        self.mi = {}
+        for band in self.segment.bp_channels.keys():
+            self.mi[band] = {}
+            for channel, signal in self.segment.bp_channels[band].items():
+                an_signal = snl.hilbert(signal)
+                instphase = np.angle(an_signal)
+                histphase, _ = np.histogram(
+                    instphase, bins=self.discretization)
+
+                self.mi[band][channel] = hist_mutual_info(
+                    histphase, hist_audio_phs)
+
+
 def segment_all_data(data_folder_path, segments_folder_path):
 
     logging.debug("Start with the segment_all_data function")
     logging.debug("Define the file path lists according to the folder paths")
 
-    if "\\" in data_folder_path: # Adapt file paths to Windows
+    if "\\" in data_folder_path:  # Adapt file paths to Windows
         header_file_paths = glob.glob(data_folder_path + r"*.vhdr")
         marker_file_paths = glob.glob(data_folder_path + r"*.vmrk")
         data_file_paths = glob.glob(data_folder_path + r"*.dat")
         experiment_file_paths = glob.glob(data_folder_path + r"*_ExpSynt.txt")
         #audio_file_paths = glob.glob(multimedia_folder_path + r"\*.wav")
         #picture_file_paths = glob.glob(multimedia_folder_path + r"\*.jpg")
-    else: # Sort the list for linux
+    else:  # Sort the list for linux
         # Here I sort the lists because if not it will raise an error later
         header_file_paths = glob.glob(data_folder_path + "*.vhdr")
         header_file_paths.sort()
@@ -718,7 +777,7 @@ def segment_all_data(data_folder_path, segments_folder_path):
 
     logging.debug("Start iterating over all the files \n\n")
 
-    for j in range(len(header_file_paths)): # Start processing by subject
+    for j in range(len(header_file_paths)):  # Start processing by subject
 
         logging.info("Starting to process file " +
                      os.path.split(header_file_paths[j])[-1])
@@ -784,8 +843,10 @@ def segment_all_data(data_folder_path, segments_folder_path):
             face_code = marker.segments[i]["face"]
             audio_code = marker.segments[i]["audio"]
             audio_file_name = subject.trials[i]["soundfile"]
-            audio_start = marker.segments[i]["astart"] - marker.segments[i]["start"]
-            audio_end = marker.segments[i]["aend"] - marker.segments[i]["start"]
+            audio_start = marker.segments[i]["astart"] - \
+                marker.segments[i]["start"]
+            audio_end = marker.segments[i]["aend"] - \
+                marker.segments[i]["start"]
             metadata = "FaceCode: " + str(face_code) + " AudioCode: " + \
                 str(audio_code) + " AudioFile: " + str(audio_file_name) + \
                 " AudioStart: " + str(audio_start) + " AudioEnd: " + \
