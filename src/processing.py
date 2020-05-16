@@ -512,8 +512,7 @@ class DataEEG(object):
         for segment in marker_object.segments:
             segment_data = {}
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]
-                    :segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]                                                       :segment["end"]]
             self.data_segments.append(segment_data)
         if release == True:
             del self.channels
@@ -698,12 +697,29 @@ class Segment(object):
 
 
 class MutualInformation(object):
-    def __init__(self, segment_path, mode, discretization, bands_dict, comments):
-        self.segment = Segment(segment_path)
-        self.subject = self.segment.segment_name.split("_")[1]
-        self.segment_number = self.segment.segment_name.split("_")[3]
+    def __init__(self, segment_path, mode, discretization, bands_dict, comments, from_file=False, file_path=""):
+        if from_file:
+            self.__open__(file_path)
+        else:
+            self.segment = Segment(segment_path)
+            self.subject = self.segment.segment_name.split("_")[1]
+            self.segment_number = self.segment.segment_name.split("_")[3]
 
-        self.face_code = self.segment.face_code
+            self.face_code = self.segment.face_code
+            self.__facecheck__()
+
+            self.audio_code = self.segment.audio_code
+            self.__audiocheck__()
+
+            self.audio_file = self.segment.audio_file
+
+            self.channels_labels = list(self.segment.channels.keys())
+            self.bands_dict = bands_dict
+            self.mode = mode
+            self.discretization = discretization
+            self.comments = comments
+
+    def __facecheck__(self):
         if self.face_code[0] == 1:
             self.face_nonscrambled = True
         elif self.face_code[0] == 2:
@@ -711,20 +727,13 @@ class MutualInformation(object):
         else:
             self.face_nonscrambled = "error"
 
-        self.audio_code = self.segment.audio_code
+    def __audiocheck__(self):
         if self.audio_code[0] == 1:
             self.audio_corr = True
         elif self.audio_code[0] == 2:
             self.audio_corr = False
         else:
             self.audio_corr = "error"
-        self.audio_file = self.segment.audio_file
-
-        self.channels_labels = list(self.segment.channels.keys())
-        self.mode = mode
-        self.bands_dict = bands_dict
-        self.discretization = discretization
-        self.comments = comments
 
     def compute(self, audio_data, audio_fs, sub_ref=False):
         self.segment.dump_eyes()
@@ -750,6 +759,24 @@ class MutualInformation(object):
 
                 self.mi[band][channel] = hist_mutual_info(
                     histphase, hist_audio_phs)
+
+    def save(self, file_path):
+        with open(file_path) as mifile:
+            header = "Subject: " + str(self.subject) +  \
+                " SegmentNumber: " + str(self.segment_number) + \
+                " FaceCode: " + str(self.face_code) + \
+                " Nonscrambled: " + str(self.face_nonscrambled) + \
+                " AudioCode: " + str(self.audio_code) + \
+                " AudioCorr: " + str(self.audio_corr) + \
+                " AudioFile: " + str(self.audio_file) + \
+                " Mode: " + str(self.mode)
+            channels_info = "Channels>>>" + str(self.channels_labels)
+            bands_info = "Bands>>>" + str(self.bands_dict)
+            discret_info = "Discretization>>>" + str(self.discretization)
+            comments = "Comments>>>" + str(self.comments)
+            spacer = "---"
+            
+            
 
 
 def segment_all_data(data_folder_path, segments_folder_path):
