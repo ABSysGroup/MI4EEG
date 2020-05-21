@@ -1,6 +1,6 @@
 """ This file contains the major part of the preprocessing of the EEG and experiment
 data exported by brainvision. Mainly it has the potential to take several subjects' files
-and chop them into neatly organised segments for further processing. 
+and chop them into neatly organised segments for further processing.
 If run as main, will process data in a given folder.
 Won't run in other enviroment that's not windows.
 
@@ -33,7 +33,7 @@ def segment_line(line):
     """Obtain markers for the experiments from the markers file
     Returns a tuple with the following info:
     Marker number, marker type, marker description, marker data point position,
-    marker data points size, marker channels (0 if all of them) 
+    marker data points size, marker channels (0 if all of them)
     """
     split_line = line.split("=")
     rest = split_line[1].split(",")
@@ -736,6 +736,9 @@ class MutualInformation(object):
             self.audio_corr = "error"
 
     def compute(self, audio_data, audio_fs, sub_ref=False):
+        if self.segment == "loaded":
+            print("This file was loaded from a .mi file, data's already available.")
+            return None
         self.segment.dump_eyes()
         self.segment.crop_audio_trial(inplace=True)
         if sub_ref:
@@ -769,14 +772,63 @@ class MutualInformation(object):
                 " AudioCode: " + str(self.audio_code) + \
                 " AudioCorr: " + str(self.audio_corr) + \
                 " AudioFile: " + str(self.audio_file) + \
-                " Mode: " + str(self.mode)
-            channels_info = "Channels>>>" + str(self.channels_labels)
-            bands_info = "Bands>>>" + str(self.bands_dict)
-            discret_info = "Discretization>>>" + str(self.discretization)
-            comments = "Comments>>>" + str(self.comments)
-            spacer = "---"
-            
-            
+                " Mode: " + str(self.mode) + "\n"
+            channels_info = "Channels>>>" + str(self.channels_labels) + "\n"
+            bands_info = "Bands>>>" + str(self.bands_dict) + "\n"
+            discret_info = "Discretization>>>" + \
+                str(self.discretization) + "\n"
+            comments = "Comments>>>" + str(self.comments) + "\n"
+            spacer = "---" + "\n"
+            meta2save = [header, channels_info,
+                         bands_info, discret_info, comments, spacer]
+            data2save = []
+            for band in self.mi.keys():
+                line2save = str(band) + " :"
+                for channel in self.channels_labels:
+                    line2save += " " + str(self.mi[band][channel])
+                data2save.append(line2save + "\n")
+
+            mifile.writelines(meta2save)
+            mifile.writelines(data2save)
+
+    def __open__(self, file_path):
+        self.segment = "loaded"
+        with open(file_path) as mifile:
+            parsemeta = True
+            parsedata = False
+            for line in mifile:
+                if parsedata:   # Parse data
+                    self.mi = {}
+                    splitline = line.replace("\n", "").split(" ")
+                    self.mi[splitline[0]] = {}
+                    for index in range(len(splitline[1:])):
+                        self.mi[splitline[0]][self.channels_labels[index]
+                                              ] = splitline[index + 1]
+                if parsemeta:   # Parse metadata
+                    splitline = line.split(" ")
+                    self.subject = splitline[1]
+                    self.segment_number = splitline[3]
+                    self.face_code = splitline[5]
+                    self.face_nonscrambled = splitline[7]
+                    self.audio_code = splitline[9]
+                    self.audio_corr = splitline[11]
+                    self.audio_file = splitline[13]
+                    self.mode = splitline[15]
+                    parsemeta = False
+                else:   # Parse last part of metadata
+                    if "Channels" in line:
+                        self.channels_labels = eval(
+                            line.replace("\n", "").split(">>>")[-1])
+                    elif "Bands" in line:
+                        self.bands_dict = eval(
+                            line.replace("\n", "").split(">>>")[-1])
+                    elif "Discretization" in line:
+                        self.discretization = eval(
+                            line.replace("\n", "").split(">>>")[-1])
+                    elif "Comments" in line:
+                        self.comments = line.replace("\n", "").split(">>>")[-1]
+                if line == "---\n":
+                    parsedata = True
 
 
 def segment_all_data(data_folder_path, segments_folder_path):
