@@ -131,3 +131,7 @@ dmypy.json
 # Raw data
 raw_Data/
 Data/
+
+# Vscode and Mac stuff
+src/.vscode/launch.json
+.DS_Store
