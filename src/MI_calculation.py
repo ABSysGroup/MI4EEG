@@ -31,7 +31,7 @@ segment_file_paths = glob.glob(data_folder_path + "*.dat")
 mi_folder_path = "../Data/mutualinfo/"
 
 # Speech files' paths
-multimedia_folder_path = "../Data/downsampled_audios/" # "../raw_data/Stimuli/"
+multimedia_folder_path = "../raw_data/Stimuli/" # "../Data/downsampled_audios/" 
 audio_file_paths = glob.glob(multimedia_folder_path + "*.wav")
 
 # Create dictionaries to contain the results of the calculations
