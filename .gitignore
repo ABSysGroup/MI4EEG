@@ -137,8 +137,9 @@ src/.vscode/launch.json
 .DS_Store
 ../.DS_Store
 
-MI_diff.dat
-MI_rel.dat
+# Data files
+*.dat
 
 # Stimuli
 *.wav
+src/MI_rel_ds8.dat
