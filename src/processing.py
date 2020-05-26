@@ -681,6 +681,7 @@ class Segment(object):
         for label in ["HEOG", "HEOG+", "VEOG", "VEOG+"]:
             del self.channels[label]
 
+
     def subtract_reference(self, reference_label="M1", rm_ref=False):
         """This method subtracts the reference electrode
         from the rest of electrodes. The reference electrode's
@@ -720,17 +721,17 @@ class MutualInformation(object):
             self.comments = comments
 
     def __facecheck__(self):
-        if self.face_code[0] == 1:
+        if self.face_code[0] == "1":
             self.face_nonscrambled = True
-        elif self.face_code[0] == 2:
+        elif self.face_code[0] == "2":
             self.face_nonscrambled = False
         else:
             self.face_nonscrambled = "error"
 
     def __audiocheck__(self):
-        if self.audio_code[0] == 1:
+        if self.audio_code[0] == "1":
             self.audio_corr = True
-        elif self.audio_code[0] == 2:
+        elif self.audio_code[0] == "2":
             self.audio_corr = False
         else:
             self.audio_corr = "error"
@@ -740,6 +741,7 @@ class MutualInformation(object):
             print("This file was loaded from a .mi file, data's already available.")
             return None
         self.segment.dump_eyes()
+        self.channels_labels = list(self.segment.channels.keys()) # Do this again to refresh
         self.segment.crop_audio_trial(inplace=True)
         if sub_ref:
             self.segment.subtract_reference(rm_ref=False)
@@ -764,7 +766,7 @@ class MutualInformation(object):
                     histphase, hist_audio_phs)
 
     def save(self, file_path):
-        with open(file_path) as mifile:
+        with open(file_path, "w") as mifile:
             header = "Subject: " + str(self.subject) +  \
                 " SegmentNumber: " + str(self.segment_number) + \
                 " FaceCode: " + str(self.face_code) + \
@@ -801,9 +803,10 @@ class MutualInformation(object):
                     self.mi = {}
                     splitline = line.replace("\n", "").split(" ")
                     self.mi[splitline[0]] = {}
-                    for index in range(len(splitline[1:])):
+                    splitline = splitline[1:]
+                    for index in range(len(splitline)):
                         self.mi[splitline[0]][self.channels_labels[index]
-                                              ] = splitline[index + 1]
+                                              ] = splitline[index]
                 if parsemeta:   # Parse metadata
                     splitline = line.split(" ")
                     self.subject = splitline[1]
@@ -945,9 +948,9 @@ def segment_all_data(data_folder_path, segments_folder_path):
 if __name__ == "__main__":
 
     # File paths should be defined differently whether running windows or other OS
-    data_folder_path = "../raw_Data/"
+    data_folder_path = "../raw_Data/EEG/"
     multimedia_folder_path = "../raw_Data/Stimuli/"
-    segments_folder_path = "../Data/"
+    segments_folder_path = "../Data/segments/"
 
     if sys.platform[:3] == "win":
         data_folder_path = data_folder_path.replace("/", "\\")
