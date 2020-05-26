@@ -135,3 +135,10 @@ Data/
 # Vscode and Mac stuff
 src/.vscode/launch.json
 .DS_Store
+../.DS_Store
+
+MI_diff.dat
+MI_rel.dat
+
+# Stimuli
+*.wav
