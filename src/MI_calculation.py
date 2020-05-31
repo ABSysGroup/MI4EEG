@@ -1,3 +1,4 @@
+# TODO: Better document this calculation and cleanup
 # Import classes from your brand new package
 import glob
 import logging
@@ -51,7 +52,8 @@ for sgmnt in segment_file_paths:
     print("Create MutualInformation object.")
     arguments = {"segment_path": sgmnt, "mode": "phase", "discretization": phs_lims, 
                     "bands_dict": freq_ranges, "comments": "MI between EEG and audio"}
-    mi = pr.MutualInformation(**arguments)
+    mi = pr.MutualInformation()
+    mi.load_segment(**arguments)
 
     # Find the file with the speech of the trial
     speech_audio_path = multimedia_folder_path + mi.segment.audio_file
