@@ -142,4 +142,3 @@ src/.vscode/launch.json
 
 # Stimuli
 *.wav
-src/MI_rel_ds8.dat
