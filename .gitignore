@@ -142,3 +142,4 @@ src/.vscode/launch.json
 
 # Stimuli
 *.wav
+.DS_Store
