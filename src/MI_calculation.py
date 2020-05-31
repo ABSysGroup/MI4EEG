@@ -28,7 +28,7 @@ phs_lims = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
 raw_data_folder_path = "../raw_data/"
 data_folder_path = "../Data/segments/"
 segment_file_paths = glob.glob(data_folder_path + "*.dat")
-mi_folder_path = "../Data/mutualinfo/"
+mi_folder_path = "../Data/mutualinfo/ds1/"
 
 # Speech files' paths
 multimedia_folder_path = "../raw_data/Stimuli/" # "../Data/downsampled_audios/" 
@@ -49,7 +49,9 @@ for sgmnt in segment_file_paths:
 
     # Load EEG and do some basic cleanup
     print("Create MutualInformation object.")
-    mi = pr.MutualInformation(sgmnt, "phase", phs_lims, freq_ranges, "test")
+    arguments = {"segment_path": sgmnt, "mode": "phase", "discretization": phs_lims, 
+                    "bands_dict": freq_ranges, "comments": "MI between EEG and audio"}
+    mi = pr.MutualInformation(**arguments)
 
     # Find the file with the speech of the trial
     speech_audio_path = multimedia_folder_path + mi.segment.audio_file
@@ -63,14 +65,14 @@ for sgmnt in segment_file_paths:
     #     exit()
 
     print("Create AudioStim object.")
-    speech_audio_path = speech_audio_path.replace(".wav", "_ds8.wav")
+    # speech_audio_path = speech_audio_path.replace(".wav", "_ds8.wav")
     audio = pr.AudioStim(speech_audio_path)
     # audio.downsample(8)
 
     # Process and bin speech
     print("Compute mutual information.")
     mi.compute(audio.data, audio.rate)
-    mi.save(mi_folder_path + sgmnt_name + "_ds8.mi")
+    mi.save(mi_folder_path + sgmnt_name + ".mi")
 
     # Add it to either face or scrambled distributions
     kw = mi.segment.is_face_kw()
