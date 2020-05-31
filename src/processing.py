@@ -4,19 +4,22 @@ and chop them into neatly organised segments for further processing.
 If run as main, will process data in a given folder.
 Won't run in other enviroment that's not windows.
 
-TODO: Have an interface or some prompts to choose the folders."""
+TODO: Add documentation!!!
+"""
 
 # Import libraries
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import sys
-import glob
 import logging
+import glob
+import sys
+import re
+import os
+
+# Import signal processing
 from scipy.io import wavfile
 from scipy import signal as snl
-
 
 # Logging to debug the script
 logging.basicConfig(level=logging.DEBUG,
@@ -27,6 +30,15 @@ logging.basicConfig(level=logging.DEBUG,
 logging.debug("Define classes and functions.")
 
 # Define some classes and functions to make easier the work later on
+
+
+def str_to_bool(s):
+    if s == "True":
+        return True
+    elif s == "False":
+        return False
+    else:
+        raise ValueError
 
 
 def segment_line(line):
@@ -681,7 +693,6 @@ class Segment(object):
         for label in ["HEOG", "HEOG+", "VEOG", "VEOG+"]:
             del self.channels[label]
 
-
     def subtract_reference(self, reference_label="M1", rm_ref=False):
         """This method subtracts the reference electrode
         from the rest of electrodes. The reference electrode's
@@ -698,27 +709,37 @@ class Segment(object):
 
 
 class MutualInformation(object):
-    def __init__(self, segment_path, mode, discretization, bands_dict, comments, from_file=False, file_path=""):
-        if from_file:
-            self.__open__(file_path)
-        else:
-            self.segment = Segment(segment_path)
-            self.subject = self.segment.segment_name.split("_")[1]
-            self.segment_number = self.segment.segment_name.split("_")[3]
+    def __init__(self):
+        """ Initialization of object """
+        pass
 
-            self.face_code = self.segment.face_code
-            self.__facecheck__()
+    def load_segment(self, segment_path, mode, discretization, bands_dict, comments):
+        """ This method is used to load from a trial in a segment file path.
+        It requires computing the MI later alongside the audio data.
+            segment_path: the path of the segment file
+            mode: the mode of calculation (phase, frequency...)
+            discretization: the discretization limits
+            bands_dict: a dictonary with the bandnames as keys and the limits as values
+            comments: any extra comments?
+        """
 
-            self.audio_code = self.segment.audio_code
-            self.__audiocheck__()
+        self.segment = Segment(segment_path)
+        self.subject = self.segment.segment_name.split("_")[1]
+        self.segment_number = self.segment.segment_name.split("_")[3]
 
-            self.audio_file = self.segment.audio_file
+        self.face_code = self.segment.face_code
+        self.__facecheck__()
 
-            self.channels_labels = list(self.segment.channels.keys())
-            self.bands_dict = bands_dict
-            self.mode = mode
-            self.discretization = discretization
-            self.comments = comments
+        self.audio_code = self.segment.audio_code
+        self.__audiocheck__()
+
+        self.audio_file = self.segment.audio_file
+
+        self.channels_labels = list(self.segment.channels.keys())
+        self.mode = mode
+        self.discretization = discretization
+        self.bands_dict = bands_dict
+        self.comments = comments
 
     def __facecheck__(self):
         if self.face_code[0] == "1":
@@ -737,11 +758,14 @@ class MutualInformation(object):
             self.audio_corr = "error"
 
     def compute(self, audio_data, audio_fs, sub_ref=False):
+
         if self.segment == "loaded":
             print("This file was loaded from a .mi file, data's already available.")
             return None
+
         self.segment.dump_eyes()
-        self.channels_labels = list(self.segment.channels.keys()) # Do this again to refresh
+        # Do this again to refresh
+        self.channels_labels = list(self.segment.channels.keys())
         self.segment.crop_audio_trial(inplace=True)
         if sub_ref:
             self.segment.subtract_reference(rm_ref=False)
@@ -785,7 +809,7 @@ class MutualInformation(object):
                          bands_info, discret_info, comments, spacer]
             data2save = []
             for band in self.mi.keys():
-                line2save = str(band) + " :"
+                line2save = str(band) + ":"
                 for channel in self.channels_labels:
                     line2save += " " + str(self.mi[band][channel])
                 data2save.append(line2save + "\n")
@@ -793,45 +817,69 @@ class MutualInformation(object):
             mifile.writelines(meta2save)
             mifile.writelines(data2save)
 
-    def __open__(self, file_path):
+    def load(self, file_path):
+        """This method is used to load a mi file"""
+        
         self.segment = "loaded"
+
         with open(file_path) as mifile:
-            parsemeta = True
-            parsedata = False
+            self.mi = {}
             for line in mifile:
-                if parsedata:   # Parse data
-                    self.mi = {}
-                    splitline = line.replace("\n", "").split(" ")
-                    self.mi[splitline[0]] = {}
-                    splitline = splitline[1:]
-                    for index in range(len(splitline)):
-                        self.mi[splitline[0]][self.channels_labels[index]
-                                              ] = splitline[index]
-                if parsemeta:   # Parse metadata
+                try:  # First metadata line
+                    self.subject
+                except AttributeError:
                     splitline = line.split(" ")
                     self.subject = splitline[1]
                     self.segment_number = splitline[3]
                     self.face_code = splitline[5]
-                    self.face_nonscrambled = splitline[7]
+                    self.face_nonscrambled = str_to_bool(splitline[7])
+                    if self.face_nonscrambled == "error":
+                        self.__facecheck__()
                     self.audio_code = splitline[9]
-                    self.audio_corr = splitline[11]
+                    self.audio_corr = str_to_bool(splitline[11])
+                    if self.audio_corr == "error":
+                        self.__audiocheck__()
                     self.audio_file = splitline[13]
                     self.mode = splitline[15]
-                    parsemeta = False
-                else:   # Parse last part of metadata
-                    if "Channels" in line:
-                        self.channels_labels = eval(
-                            line.replace("\n", "").split(">>>")[-1])
-                    elif "Bands" in line:
-                        self.bands_dict = eval(
-                            line.replace("\n", "").split(">>>")[-1])
-                    elif "Discretization" in line:
-                        self.discretization = eval(
-                            line.replace("\n", "").split(">>>")[-1])
-                    elif "Comments" in line:
-                        self.comments = line.replace("\n", "").split(">>>")[-1]
-                if line == "---\n":
-                    parsedata = True
+                    continue
+
+                try:
+                    self.channels_labels
+                except AttributeError:
+                    self.channels_labels = eval(
+                        line.replace("\n", "").split(">>>")[-1])
+                    continue
+
+                try:
+                    self.bands_dict
+                except AttributeError:
+                    self.bands_dict = eval(
+                        line.replace("\n", "").split(">>>")[-1])
+                    continue
+
+                try:
+                    self.discretization
+                except AttributeError:
+                    self.discretization = eval(
+                        line.replace("\n", "").split(">>>")[-1])
+                    continue
+
+                try:
+                    self.comments
+                except AttributeError:
+                    self.comments = line.replace("\n", "").split(">>>")[-1]
+                    continue
+
+                if "---" in line:
+                    continue
+
+                splitline = line.replace("\n", "").split(" ")
+                band = splitline[0][:-1]
+                self.mi[band] = {}  # Band dict creation
+                splitline = splitline[1:]
+                for index in range(len(splitline)):
+                    self.mi[band][self.channels_labels[index]
+                                  ] = splitline[index]
 
 
 def segment_all_data(data_folder_path, segments_folder_path):
