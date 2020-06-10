@@ -757,13 +757,15 @@ class MutualInformation(object):
         else:
             self.audio_corr = "error"
 
-    def compute(self, audio_data, audio_fs, sub_ref=False):
+    def compute(self, audio_data, audio_fs, dump_eyes=True, sub_ref=False):
 
         if self.segment == "loaded":
             print("This file was loaded from a .mi file, data's already available.")
             return None
 
-        self.segment.dump_eyes()
+        if dump_eyes:
+            self.segment.dump_eyes()
+
         # Do this again to refresh
         self.channels_labels = list(self.segment.channels.keys())
         self.segment.crop_audio_trial(inplace=True)
@@ -819,7 +821,7 @@ class MutualInformation(object):
 
     def load(self, file_path):
         """This method is used to load a mi file"""
-        
+
         self.segment = "loaded"
 
         with open(file_path) as mifile:
