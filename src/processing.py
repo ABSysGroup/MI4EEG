@@ -103,8 +103,8 @@ def bandpass_filter_check(lowcut, highcut, numcuts):
     """
     # Sample rate and desired cutoff freqs (in Hz)
     fs = 44100
-    #lowcut = 500
-    #highcut = 1250
+    # lowcut = 500
+    # highcut = 1250
 
     # Plot the frequency response for a few different orders
     plt.figure(1)
@@ -184,7 +184,7 @@ def cochlear_frequency(distance, units=None):
 def cochlear_distance(frequency, distance_units=None):
     """
     Calculates the cochlear distance of given
-    frequency for human species. Based on 
+    frequency for human species. Based on
     greenwood 1990.
     """
     A_const = 165.4  # to yield Hz
@@ -267,7 +267,7 @@ def cochlear_bandpass(data, lowcut, highcut, num, fs, order=4):
 def hilbert_envelope(data):
     """
     Returns the envelope of an audio wave given
-    by the absolute value of the hilbert transform 
+    by the absolute value of the hilbert transform
     of the wave
     """
     return np.abs(snl.hilbert(data))
@@ -386,6 +386,7 @@ class Marker(object):
         a data segment, containing the following information:
             start_pos: the starting position (in data points) of the segment
             audio_start_pos: the starting position (in data points) where the audio starts playing
+            audio_stim_pos: position where the right/wrong word is played
             audio_end_pos: the ending position (in data points) of the audio
             end_pos: the ending position (in data points) of the segment
             face_stim: the code of the face stimulus (2 digit code)
@@ -400,9 +401,14 @@ class Marker(object):
 
     def __init__(self, marker_file):
 
-        # Initialise some variables
         self.segments = []
-        is_new_segment = False
+        step = "begin"
+
+        def new_segment():  # Create a new and clean maker holder for a segment
+            x = {"start": 0, "astart": 0, "astim": 0, "aend": 0,
+                 "end": 0, "fcode": 0, "acode": 0,
+                 "response_correct": False}
+            return x
 
         for line in marker_file:
 
@@ -414,81 +420,106 @@ class Marker(object):
             tidy_line = segment_line(line)
 
             # Get segment start
-            if "New Segment" in tidy_line:
-                is_new_segment = True
-                start_pos = 0
-                audio_start_pos = 0
-                audio_end_pos = 0
-                end_pos = 0
-                face_stim = ""
-                audio_stim = ""
-                is_audio_stim = False
-                is_audio_playing = False
-                is_subject_answering = False
+            if step == "begin" and "New Segment" in tidy_line:
+                step = "new"
+                curr_segment = new_segment()
+                continue
 
             # Search for the stimuli
             if "Stimulus" in tidy_line:
                 # Obtain the face stimulus code and the data position
-                if is_new_segment == True and int(tidy_line[2][1:]) < 99:
-                    face_stim = int(tidy_line[2][1:])
-                    start_pos = tidy_line[3]
-                    is_new_segment = False
-                    is_audio_stim = True
+                if step == "new" and int(tidy_line[2][1:]) < 99:
+                    curr_segment["fcode"] = int(tidy_line[2][1:])
+                    curr_segment["start"] = tidy_line[3]
+                    curr_segment["astart"] = tidy_line[3] + \
+                        125  # 500ms at 250Hz => 125 data points
+                    step = "acode"
+                    continue
 
                 # Obtain the audio stimulus code and data position
-                if is_audio_stim == True and int(tidy_line[2][1:]) > 99:
-                    audio_stim = int(tidy_line[2][1:])
-                    audio_start_pos = tidy_line[3]
-                    is_audio_stim = False
-                    is_audio_playing = True
+                if step == "acode" and int(tidy_line[2][1:]) > 99:
+                    curr_segment["acode"] = int(tidy_line[2][1:])
+                    curr_segment["astim"] = tidy_line[3]
+                    step = "aend"
+                    continue
 
                 # Obtain the end of the audio stimulus
-                if is_audio_playing == True and int(tidy_line[2][1:]) == 99:
-                    audio_end_pos = tidy_line[3]
-                    is_audio_playing = False
-                    is_subject_answering = True
+                if step == "aend" and int(tidy_line[2][1:]) == 99:
+                    curr_segment["aend"] = tidy_line[3]
+                    step = "answer"
+                    continue
 
                 # Obtain end of segment and append to list
-                if is_subject_answering == True and int(tidy_line[2][1:]) <= 3:
-                    end_pos = tidy_line[3]
-                    correct = int(tidy_line[2][1:])
-                    segment_dict = {"start": start_pos, "astart": audio_start_pos, "aend": audio_end_pos,
-                                    "end": end_pos, "face": face_stim, "audio": audio_stim, "correct": correct}
-                    self.segments.append(segment_dict)
-                    del segment_dict
-                    is_subject_answering = False
+                if step == "answer" and int(tidy_line[2][1:]) <= 3:
+                    curr_segment["end"] = tidy_line[3]
+                    curr_segment["response_correct"] = int(tidy_line[2][1:])
+                    self.segments.append(curr_segment)
+                    step = "begin"
+                    continue
 
         self.segments_number = len(self.segments)
 
     def experiment_crosscheck(self, subject_object):
-        difference = subject_object.trials_number - self.segments_number
-        if difference != 0:
-            logging.warning("Subject object and data segments are not the same length. Subject obj has " +
-                            str(difference) + " more entries than dataEEG obj. Checking trial by trial.")
-            problematic_idx = []
-            for idx, trial in enumerate(subject_object.trials):
 
-                try:
-                    assert(trial["face_id"] == self.segments[idx][4])
-                except:
-                    problematic_idx.append(idx)
-                    logging.warning("Trial with index " + str(idx) + " has face_ids that do not match between both files. " +
-                                    "EXP: " + str(trial["face_id"]) + " MARK: " + str(self.segments[idx]["face"]) + ". Deleting the entry from the file with most entries.")
-                    if difference > 0 and subject_object.trials[idx+1]["face_id"] == self.segments[idx]["face"]:
-                        logging.warning("Corrected succesfully")
+        difference = subject_object.trials_number - self.segments_number
+
+        logging.warning("Subject - dataEEG lenght diff: " +
+                        str(abs(difference)))
+
+        problematic_idx = []
+        idx = 0  # starting index
+
+        while difference != 0:
+            try:
+                assert(
+                    subject_object.trials[idx]["face_id"] == self.segments[idx]["fcode"])
+            except IndexError:
+                problematic_idx.append(idx)
+                if difference < 0:
+                    logging.warning(
+                        "Index out of range for subject obj. Deleting dataEEG obj. entry.")
+                    del self.segments[idx]
+                    logging.warning("Corrected succesfuly")
+                    difference += 1
+                elif difference > 0:
+                    logging.warning(
+                        "Index out of range for dataEEG obj. Deleting subject obj. entry.")
+                    del subject_object.trials[idx]
+                    logging.warning("Corrected succesfuly")
+                    difference -= 1
+                idx -= 2  # review last index
+            except AssertionError:
+                problematic_idx.append(idx)
+                logging.warning("Trial with index " + str(idx) + " has face_ids that do not match between both files. " +
+                                "EXP: " + str(subject_object.trials[idx]["face_id"]) + " MARK: " + str(self.segments[idx]["fcode"]) + ". Deleting the entry from the file with most entries.")
+                if difference > 0:
+                    if subject_object.trials[idx+1]["face_id"] == self.segments[idx]["fcode"]:
+                        logging.warning(
+                            "Incorrect trial on subject object. Deleting entry.")
                         del subject_object.trials[idx]
-                        difference -= 1
-                    elif difference < 0 and subject_object.trials[idx]["face_id"] == self.segments[idx+1][4]:
                         logging.warning("Corrected succesfully")
+                        difference -= 1
+                elif difference < 0:
+                    if subject_object.trials[idx]["face_id"] == self.segments[idx+1]["fcode"]:
+                        logging.warning(
+                            "Incorrect trial on dataEEG object. Deleting entry.")
                         del self.segments[idx]
+                        logging.warning("Corrected succesfully")
                         difference += 1
-                    elif difference == 0:
-                        logging.critical(
-                            "Same number of trials but faces still different!")
-                        break
-                if difference == 0:
-                    break   # breaks for loop
-            logging.warning("Problem indeces: " + str(problematic_idx))
+                elif difference == 0:
+                    logging.critical(
+                        "Same number of trials but faces still different!")
+                    break
+
+            if difference == 0:
+                logging.warning("Differences reduced to zero.")
+                break   # breaks for loop
+
+            idx += 1
+
+        logging.warning(
+            "Problematic indeces pre-correction: " + str(problematic_idx))
+        logging.warning("Difference level: " + str(difference))
 
 
 class DataEEG(object):
@@ -503,6 +534,7 @@ class DataEEG(object):
     """
 
     def __init__(self, data_file):
+        # Parse the whole .dat file with the EEG data inside.
         self.channels = {}
         for line in data_file:
             key = line.split()[0]
@@ -618,7 +650,7 @@ class AudioStim(object):
 
         logging.debug("Downsampling audio signal...")
         self.data = self.data[::factor]
-        #self.data = snl.decimate(self.data, factor)
+        # self.data = snl.decimate(self.data, factor)
         self.rate = self.rate/factor
         logging.debug("Signal downsampled.")
 
@@ -637,7 +669,8 @@ class Segment(object):
             self.face_code = metadata[1]
             self.audio_code = metadata[3]
             self.audio_file = metadata[5]
-            self.audio_start = int(metadata[7])
+            self.audio_start = 125  # 500ms after the start of the trial the audio starts
+            self.audio_stim_point = int(metadata[7])
             self.audio_end = int(metadata[9])
             self.channels = {}
             for line in segment_file:
@@ -757,13 +790,15 @@ class MutualInformation(object):
         else:
             self.audio_corr = "error"
 
-    def compute(self, audio_data, audio_fs, sub_ref=False):
+    def compute(self, audio_data, audio_fs, dump_eyes=True, sub_ref=False):
 
         if self.segment == "loaded":
             print("This file was loaded from a .mi file, data's already available.")
             return None
 
-        self.segment.dump_eyes()
+        if dump_eyes:
+            self.segment.dump_eyes()
+
         # Do this again to refresh
         self.channels_labels = list(self.segment.channels.keys())
         self.segment.crop_audio_trial(inplace=True)
@@ -772,7 +807,7 @@ class MutualInformation(object):
         self.segment.bandpass_data(250, self.bands_dict, orden=3)
 
         # Calculate phases and so on
-        #fs, audio_data = wavfile.read(speech_audio_path)
+        # fs, audio_data = wavfile.read(speech_audio_path)
         inst_phase_aud = np.angle(snl.hilbert(audio_data))
         hist_audio_phs, _ = np.histogram(
             inst_phase_aud, bins=self.discretization)
@@ -819,7 +854,7 @@ class MutualInformation(object):
 
     def load(self, file_path):
         """This method is used to load a mi file"""
-        
+
         self.segment = "loaded"
 
         with open(file_path) as mifile:
@@ -892,8 +927,8 @@ def segment_all_data(data_folder_path, segments_folder_path):
         marker_file_paths = glob.glob(data_folder_path + r"*.vmrk")
         data_file_paths = glob.glob(data_folder_path + r"*.dat")
         experiment_file_paths = glob.glob(data_folder_path + r"*_ExpSynt.txt")
-        #audio_file_paths = glob.glob(multimedia_folder_path + r"\*.wav")
-        #picture_file_paths = glob.glob(multimedia_folder_path + r"\*.jpg")
+        # audio_file_paths = glob.glob(multimedia_folder_path + r"\*.wav")
+        # picture_file_paths = glob.glob(multimedia_folder_path + r"\*.jpg")
     else:  # Sort the list for linux
         # Here I sort the lists because if not it will raise an error later
         header_file_paths = glob.glob(data_folder_path + "*.vhdr")
@@ -970,17 +1005,19 @@ def segment_all_data(data_folder_path, segments_folder_path):
             else:
                 segment_file = open(segments_folder_path + "/sujeto_" + str(subject.trials[0]["subject_id"]) +
                                     "_segmento_" + str(i+1) + ".dat", "w")
-            face_code = marker.segments[i]["face"]
-            audio_code = marker.segments[i]["audio"]
+            face_code = marker.segments[i]["fcode"]
+            audio_code = marker.segments[i]["acode"]
             audio_file_name = subject.trials[i]["soundfile"]
             audio_start = marker.segments[i]["astart"] - \
+                marker.segments[i]["start"]
+            stim_start = marker.segments[i]["astim"] - \
                 marker.segments[i]["start"]
             audio_end = marker.segments[i]["aend"] - \
                 marker.segments[i]["start"]
             metadata = "FaceCode: " + str(face_code) + " AudioCode: " + \
                 str(audio_code) + " AudioFile: " + str(audio_file_name) + \
-                " AudioStart: " + str(audio_start) + " AudioEnd: " + \
-                str(audio_end) + "\n"
+                " AudioStart: " + str(audio_start) + " StimStart: " + \
+                str(stim_start) + " AudioEnd: " + str(audio_end) + "\n"
             segment_file.write(metadata)
             for key in data.data_segments[i].keys():
                 line = key + " " + \
