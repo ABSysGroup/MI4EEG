@@ -32,7 +32,7 @@ segment_file_paths = glob.glob(data_folder_path + "*.dat")
 mi_folder_path = "../Data/mutualinfo/ds1/"
 
 # Speech files' paths
-multimedia_folder_path = "../raw_data/Stimuli/" # "../Data/downsampled_audios/" 
+multimedia_folder_path = "../raw_data/Stimuli/"  # "../Data/downsampled_audios/"
 audio_file_paths = glob.glob(multimedia_folder_path + "*.wav")
 
 # Create dictionaries to contain the results of the calculations
@@ -41,7 +41,7 @@ mutual_information_sf = {"scrambled": {},
 
 number_of_processed = 0
 
-## This is the computational heavy part
+#  This is the computational heavy part
 # Loop over the segments in order to process them
 print("Start iterating over segments \n \n")
 for sgmnt in segment_file_paths:
@@ -50,8 +50,8 @@ for sgmnt in segment_file_paths:
 
     # Load EEG and do some basic cleanup
     print("Create MutualInformation object.")
-    arguments = {"segment_path": sgmnt, "mode": "phase", "discretization": phs_lims, 
-                    "bands_dict": freq_ranges, "comments": "MI between EEG and audio"}
+    arguments = {"segment_path": sgmnt, "mode": "phase", "discretization": phs_lims,
+                 "bands_dict": freq_ranges, "comments": "MI between EEG and audio"}
     mi = pr.MutualInformation()
     mi.load_segment(**arguments)
 
@@ -90,7 +90,7 @@ for sgmnt in segment_file_paths:
 
     number_of_processed += 1
     print("Gone over " + str(number_of_processed /
-                                     len(segment_file_paths)*100) + "% of files")
+                             len(segment_file_paths)*100) + "% of files")
 
 # Calculate mean values for MI for each channel
 print("Starting to calculate mean values")
@@ -113,11 +113,7 @@ for band in mutual_information_sf["face"].keys():
             mutual_information_sf["scrambled"][band][channel]
         MI_rel[band][channel] = MI_diff[band][channel] / value
 
-
-
-
-
-## SAVE THE STUFF
+# SAVE THE STUFF
 try:
     with open("MI_diff_ds8.dat", "w") as thing:
         thing.write(str(MI_diff))
