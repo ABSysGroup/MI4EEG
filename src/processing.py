@@ -302,22 +302,34 @@ def normalize_angle(angle):
     return new_angle
 
 
-def hist_entropy(data):
+def hist_entropy(hist):
     """Given an histogram with the data
     calculate the entropy"""
-    totaln = sum(data)
-    probs = np.zeros(len(data))
+    totaln = sum(hist)
+    probs = np.zeros(len(hist))
     entropy = 0
-    for iter in range(len(data)):
-        probs[iter] = data[iter]/totaln
+    for iter in range(len(hist)):
+        probs[iter] = hist[iter]/totaln
         entropy -= probs[iter]*np.log2(probs[iter])
     return entropy, probs
+
+
+def joint_probs(hist1, hist2):
+    """ Calculate joint probabilities given
+    two histograms """
+    totalN = sum(hist1) + sum(hist2)
+    probs12 = np.zeros([len(hist1), len(hist2)])
+    for iter1 in range(len(hist1)):
+        for iter2 in range(len(hist2)):
+            probs12[iter1, iter2] = (hist1[iter1] + hist2[iter2])/totalN
+    return probs12
 
 
 def hist_mutual_info(hist1, hist2):
     entropy1, probs1 = hist_entropy(hist1)
     _, probs2 = hist_entropy(hist2)
-    probs12 = np.outer(probs1, probs2)
+    #probs12 = np.outer(probs1, probs2)
+    probs12 = joint_probs(hist1, hist2)
     cumsum = 0
     for i in range(len(probs1)):
         for j in range(len(probs2)):
@@ -790,7 +802,7 @@ class MutualInformation(object):
         else:
             self.audio_corr = "error"
 
-    def compute(self, audio_data, audio_fs, dump_eyes=True, sub_ref=False):
+    def compute(self, audio_data, audio_fs, crop_audio=True, dump_eyes=True, sub_ref=False):
 
         if self.segment == "loaded":
             print("This file was loaded from a .mi file, data's already available.")
@@ -801,10 +813,71 @@ class MutualInformation(object):
 
         # Do this again to refresh
         self.channels_labels = list(self.segment.channels.keys())
-        self.segment.crop_audio_trial(inplace=True)
+        if crop_audio:
+            self.segment.crop_audio_trial(inplace=True)
         if sub_ref:
             self.segment.subtract_reference(rm_ref=False)
         self.segment.bandpass_data(250, self.bands_dict, orden=3)
+
+        # Get the analytic signals
+        self.analytic_audio = snl.hilbert(audio_data)
+        self.analytic_eeg = {}
+        for band in self.segment.bp_channels.keys():
+            self.analytic_eeg[band] = {}
+            for channel, signal in self.segment.bp_channels[band].items():
+                self.analytic_eeg[band][channel] = snl.hilbert(signal)
+
+        # Now, remember that the instant phase is the angle of the
+        # analytic signal, the instant amplitude, or envelope,
+        # is the absolute value of the analytic signal and the
+        # instant frequency is the first derivative of the instant
+        # phase.
+
+        if self.mode.lower() == "phase":
+            hist_audio_phs, _ = np.histogram(
+                np.angle(self.analytic_audio), bins=self.discretization)
+            self.mi = {}
+            for band in self.segment.bp_channels.keys():
+                self.mi[band] = {}
+                for channel, signal in self.segment.bp_channels[band].items():
+                    histphase, _ = np.histogram(
+                        np.angle(self.analytic_eeg[band][channel]), bins=self.discretization)
+
+                    self.mi[band][channel] = hist_mutual_info(
+                        histphase, hist_audio_phs)
+
+        elif self.mode.lower() == "envelope":
+            hist_audio_phs, _ = np.histogram(
+                np.abs(self.analytic_audio), bins=self.discretization)
+            self.mi = {}
+            for band in self.segment.bp_channels.keys():
+                self.mi[band] = {}
+                for channel, signal in self.segment.bp_channels[band].items():
+                    histphase, _ = np.histogram(
+                        np.abs(self.analytic_eeg[band][channel]), bins=self.discretization)
+
+                    self.mi[band][channel] = hist_mutual_info(
+                        histphase, hist_audio_phs)
+
+        elif self.mode.lower() == "frequency":
+            hist_audio_phs, _ = np.histogram(
+                np.abs(self.analytic_audio), bins=self.discretization)
+            self.mi = {}
+            for band in self.segment.bp_channels.keys():
+                self.mi[band] = {}
+                for channel, signal in self.segment.bp_channels[band].items():
+                    histphase, _ = np.histogram(
+                        np.abs(self.analytic_eeg[band][channel]), bins=self.discretization)
+
+                    self.mi[band][channel] = hist_mutual_info(
+                        histphase, hist_audio_phs)
+            print("WIP")
+            return None
+
+        else:
+            print(
+                "Can't understand selected mode, please, retry with 'phase', 'envelope' or 'frequency'.")
+            return None
 
         # Calculate phases and so on
         # fs, audio_data = wavfile.read(speech_audio_path)
