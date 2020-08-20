@@ -22,10 +22,10 @@ logging.basicConfig(level=print,
 
 # Define constants: frequency ranges, its limits and the limits of the bins for phase
 logging.debug("Define frequency ranges and phase limits for discretization.")
-freq_ranges = {"delta": (1, 3), "theta_low": (3, 5), "theta_high": (5, 7),
-               "alpha": (7, 12), "beta": (12, 30), "gamma": (30, 50)}
+freq_ranges = {"low_freq": (0.1, 2), "delta": (1, 3), "theta_low": (3, 5), "theta_high": (5, 7),
+               "alpha": (7, 12), "beta": (12, 30), "gamma": (30, 50), "high_freq": (50, 100)}
 freq_limits = [0, 1, 3, 5, 7, 12, 30, 50]
-phs_lims = np.linspace(-np.pi, np.pi, 8)
+phs_lims = np.linspace(-np.pi, np.pi, 4)
 # phs_lims = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
 
 # Load segments path. Might change depending on where you put them directory-wise
