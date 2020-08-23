@@ -143,6 +143,7 @@ src/.vscode/launch.json
 *.xlsx
 *.csv
 *.mi
+*.json
 
 # Stimuli
 *.wav
