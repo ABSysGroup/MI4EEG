@@ -142,6 +142,7 @@ src/.vscode/launch.json
 *.dat
 *.xlsx
 *.csv
+*.mi
 
 # Stimuli
 *.wav
