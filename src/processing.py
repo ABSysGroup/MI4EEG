@@ -8,8 +8,6 @@ TODO: Add documentation!!!
 """
 
 # Import libraries
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 import numpy as np
 import logging
 import glob
@@ -20,6 +18,7 @@ import os
 # Import signal processing
 from scipy.io import wavfile
 from scipy import signal as snl
+from scipy import stats as stats
 
 # Logging to debug the script
 logging.basicConfig(level=logging.DEBUG,
@@ -459,6 +458,23 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
     return texts
 
 
+def kolmo_smir(data, plot=False):
+    hist, bin_edges = np.histogram(data, int(np.ceil(len(data)/50)))
+    values = []
+    for i in range(len(hist)):
+        values.append([hist[i], (bin_edges[i]+bin_edges[i+1])/2])
+    data = np.hstack([np.repeat(x, int(f)) for f, x in values])
+    loc, scale = stats.norm.fit(data)
+    n = stats.norm(loc=loc, scale=scale)
+    if plot:
+        plt.hist(data, bins=np.arange(
+            data.min(), data.max()+0.2, 0.2), rwidth=0.5)
+        x = np.arange(data.min(), data.max()+0.2, 0.2)
+        plt.plot(x, 350*n.pdf(x))
+        plt.show()
+    return stats.kstest(data, n.cdf)
+
+
 class Header(object):
     """
     Given a .vhdr file from BrainVision, reads it and extracts
@@ -689,7 +705,7 @@ class DataEEG(object):
         for segment in marker_object.segments:
             segment_data = {}
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]:segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]                                                       :segment["end"]]
             self.data_segments.append(segment_data)
         if release == True:
             del self.channels
@@ -823,6 +839,18 @@ class Segment(object):
             self.cropped_channels = {}
             for key, values in self.channels.items():
                 self.cropped_channels[key] = values[self.audio_start:self.audio_end]
+
+    def crop_audio_toStim(self, inplace=True):
+        """
+        Crops the audio from the trigger to the end of the audio
+        """
+        if inplace:
+            for key, values in self.channels.items():
+                self.channels[key] = values[self.audio_stim_point:self.audio_end]
+        else:
+            self.cropped_channels = {}
+            for key, values in self.channels.items():
+                self.cropped_channels[key] = values[self.audio_stim_point:self.audio_end]
 
     def bandpass_data(self, fs, band_ranges_dict, orden=3):
         self.bp_channels = {}
@@ -1090,7 +1118,7 @@ class MutualInformation(object):
                     self.discretization
                 except AttributeError:
                     self.discretization = eval(
-                        line.replace("\n", "").split(">>>")[-1])
+                        line.replace("\n", "").replace(" ", ",").replace(",,", ",").split(">>>")[-1])
                     continue
 
                 try:

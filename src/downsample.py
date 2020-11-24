@@ -16,12 +16,13 @@ wavs_paths = glob.glob(folder_path + "*.wav")
 
 print("Starting...")
 for path in wavs_paths:
-        audio = pr.AudioStim(path)
-        audio.downsample(8)
-        print("RATE " + str(audio.rate))
-        new_path = "../Data/downsampled_audios/" #+ os.path.split(path)[-1]
-        new_path = os.path.split(path)[-1].split(".")[0] + "_ds8.wav"
-        audio.save(new_path)
-        print("File " + new_path + " done")
+    audio = pr.AudioStim(path)
+    print("OLD RATE " + str(audio.rate))
+    audio.downsample(8)
+    print("NEW RATE " + str(audio.rate))
+    new_path = "../preprocessed_data/downsampled_audios/"
+    new_path += os.path.split(path)[-1].split(".")[0] + "_ds8.wav"
+    audio.save(new_path)
+    print("File " + new_path + " done")
 
 print("Done")

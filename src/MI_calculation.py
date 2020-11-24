@@ -3,12 +3,8 @@
 import glob
 import logging
 import numpy as np
-import pandas as pd
 import os
 import json
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
 
 from scipy.io import wavfile
 import scipy.stats as stats
@@ -23,20 +19,23 @@ logging.basicConfig(level=print,
 # Define constants: frequency ranges, its limits and the limits of the bins for phase
 logging.debug("Define frequency ranges and phase limits for discretization.")
 freq_ranges = {"low_freq": (0.1, 2), "delta": (1, 3), "theta_low": (3, 5), "theta_high": (5, 7),
-               "alpha": (7, 12), "beta": (12, 30), "gamma": (30, 50), "high_freq": (50, 100)}
+               "alpha": (7, 12), "beta": (12, 30), "gamma_low": (30, 50), "gamma_high": (50, 100)}
 freq_limits = [0, 1, 3, 5, 7, 12, 30, 50]
 phs_lims = np.linspace(-np.pi, np.pi, 4)
 # phs_lims = [-np.pi, -np.pi/2, 0, np.pi/2, np.pi]
 
 # Load segments path. Might change depending on where you put them directory-wise
 raw_data_folder_path = "../raw_data/"
-data_folder_path = "../Data/segments/"
-segment_file_paths = glob.glob(data_folder_path + "*.dat")
-mi_folder_path = "../Data/mutualinfo/ds1_2/"
+segment_folder_path = "../preprocessed_data/segments/"
+segment_file_paths = glob.glob(segment_folder_path + "*.dat")
+mi_folder_path = "../results/mutualinfo/ds8_rightanswer/"
 
 # Speech files' paths
-multimedia_folder_path = "../raw_data/Stimuli/"  # "../Data/downsampled_audios/"
+# multimedia_folder_path = "../raw_data/Stimuli/"  # "../Data/downsampled_audios/"
+# audio_file_paths = glob.glob(multimedia_folder_path + "*.wav")
+multimedia_folder_path = "../preprocessed_data/downsampled_audios/"
 audio_file_paths = glob.glob(multimedia_folder_path + "*.wav")
+
 
 # Create dictionaries to contain the results of the calculations
 mutual_information_sf = {"scrambled": {},
@@ -72,7 +71,7 @@ for sgmnt in segment_file_paths:
     #     exit()
 
     logging.debug("Create AudioStim object.")
-    # speech_audio_path = speech_audio_path.replace(".wav", "_ds8.wav")
+    speech_audio_path = speech_audio_path.replace(".wav", "_ds8.wav")
     audio = pr.AudioStim(speech_audio_path)
     # audio.downsample(8)
 
@@ -149,13 +148,7 @@ with open("MI_diff_rel.json", "w") as jsonfile:
     json.dump({"MI_diff": MI_diff, "MI_rel": MI_rel}, jsonfile)
 
 # Use kruskal-wallis and ANOVA for analysis
-logging.debug("Doing the ANOVA and KW analysis...")
-fandp_anova = {}
-for band in bands:
-    fandp_anova[band] = {}
-    for channel in channels:
-        fandp_anova[band][channel] = stats.f_oneway(
-            cumdata[band][channel]["face"], cumdata[band][channel]["noface"])
+logging.debug("Doing the KW analysis...")
 fandp_kruskal = {}
 for band in bands:
     fandp_kruskal[band] = {}
@@ -164,8 +157,6 @@ for band in bands:
             cumdata[band][channel]["face"], cumdata[band][channel]["noface"])
 
 logging.debug("Saving analysis...")
-with open("anova.json", "w") as jsonfile:
-    json.dump(fandp_anova, jsonfile)
 with open("kw.json", "w") as jsonfile:
     json.dump(fandp_kruskal, jsonfile)
 
