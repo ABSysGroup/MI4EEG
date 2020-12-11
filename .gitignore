@@ -130,7 +130,8 @@ dmypy.json
 
 # Data and quick exports
 raw_Data/
-Data/
+preprocessed_data/
+results/
 src/quick_exports/
 
 # Vscode and Mac stuff
@@ -144,6 +145,7 @@ src/.vscode/launch.json
 *.csv
 *.mi
 *.json
+*.txt
 
 # Stimuli
 *.wav
