@@ -1,15 +1,6 @@
-# Import classes from your brand new package
-import glob
-import logging
-import numpy as np
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import os
-
-from scipy.io import wavfile
-import scipy.signal as snl
 import processing as pr
+import glob
+import os
 
 folder_path = "../raw_data/Stimuli/"
 wavs_paths = glob.glob(folder_path + "*.wav")
