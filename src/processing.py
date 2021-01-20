@@ -19,6 +19,7 @@ import os
 from scipy.io import wavfile
 from scipy import signal as snl
 from scipy import stats as stats
+import matplotlib.pyplot as plt
 
 # Logging to debug the script
 logging.basicConfig(level=logging.DEBUG,
@@ -32,34 +33,12 @@ logging.debug("Define classes and functions.")
 
 
 def str_to_bool(s):
-    if s == "True":
+    if s.strip().lower() == "true":
         return True
-    elif s == "False":
+    elif s.strip().lower() == "false":
         return False
     else:
-        raise ValueError
-
-
-def segment_line(line):
-    """Obtain markers for the experiments from the markers file
-    Returns a tuple with the following info:
-    Marker number, marker type, marker description, marker data point position,
-    marker data points size, marker channels (0 if all of them)
-    """
-    split_line = line.split("=")
-    rest = split_line[1].split(",")
-    return int(split_line[0][2:]), rest[0], rest[1], int(rest[2]), int(rest[3]), rest[4]
-
-
-def facecode(filename):
-    """ Translates the string facestim id to the numerical ones """
-    faceid = filename[1]
-    if filename[2] == "n":
-        scr = "1"
-    elif filename[2] == "s":
-        scr = "2"
-    facecode = scr + faceid
-    return int(facecode)
+        raise ValueError("Could not read whether true or false was written")
 
 
 def bw4_bandpass(lowcut, highcut, fs, order=4):
@@ -327,7 +306,7 @@ def joint_probs(hist1, hist2):
 def hist_mutual_info(hist1, hist2):
     entropy1, probs1 = hist_entropy(hist1)
     _, probs2 = hist_entropy(hist2)
-    #probs12 = np.outer(probs1, probs2)
+    # probs12 = np.outer(probs1, probs2)
     probs12 = joint_probs(hist1, hist2)
     cumsum = 0
     for i in range(len(probs1)):
@@ -335,127 +314,6 @@ def hist_mutual_info(hist1, hist2):
             cumsum += probs12[i, j] * \
                 np.log2(probs12[i, j]/(probs1[i]*probs2[j]))
     return entropy1 - cumsum
-
-
-def heatmap(data, row_labels, col_labels, ax=None,
-            cbar_kw={}, cbarlabel="", **kwargs):
-    """
-    Create a heatmap from a numpy array and two lists of labels.
-
-    Parameters
-    ----------
-    data
-        A 2D numpy array of shape (N, M).
-    row_labels
-        A list or array of length N with the labels for the rows.
-    col_labels
-        A list or array of length M with the labels for the columns.
-    ax
-        A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
-        not provided, use current axes or create a new one.  Optional.
-    cbar_kw
-        A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
-    cbarlabel
-        The label for the colorbar.  Optional.
-    **kwargs
-        All other arguments are forwarded to `imshow`.
-    """
-
-    if not ax:
-        ax = plt.gca()
-
-    # Plot the heatmap
-    im = ax.imshow(data, **kwargs)
-
-    # Create colorbar
-    cbar = ax.figure.colorbar(im, ax=ax, **cbar_kw)
-    cbar.ax.set_ylabel(cbarlabel, rotation=-90, va="bottom")
-
-    # We want to show all ticks...
-    ax.set_xticks(np.arange(data.shape[1]))
-    ax.set_yticks(np.arange(data.shape[0]))
-    # ... and label them with the respective list entries.
-    ax.set_xticklabels(col_labels)
-    ax.set_yticklabels(row_labels)
-
-    # Let the horizontal axes labeling appear on top.
-    ax.tick_params(top=True, bottom=False,
-                   labeltop=True, labelbottom=False)
-
-    # Rotate the tick labels and set their alignment.
-    plt.setp(ax.get_xticklabels(), rotation=-30, ha="right",
-             rotation_mode="anchor")
-
-    # Turn spines off and create white grid.
-    for _, spine in ax.spines.items():
-        spine.set_visible(False)
-        # edge.set_visible(False)
-
-    ax.set_xticks(np.arange(data.shape[1]+1)-.5, minor=True)
-    ax.set_yticks(np.arange(data.shape[0]+1)-.5, minor=True)
-    ax.grid(which="minor", color="w", linestyle='-', linewidth=3)
-    ax.tick_params(which="minor", bottom=False, left=False)
-
-    return im, cbar
-
-
-def annotate_heatmap(im, data=None, valfmt="{x:.2f}",
-                     textcolors=("black", "white"),
-                     threshold=None, **textkw):
-    """
-    A function to annotate a heatmap.
-
-    Parameters
-    ----------
-    im
-        The AxesImage to be labeled.
-    data
-        Data used to annotate.  If None, the image's data is used.  Optional.
-    valfmt
-        The format of the annotations inside the heatmap.  This should either
-        use the string format method, e.g. "$ {x:.2f}", or be a
-        `matplotlib.ticker.Formatter`.  Optional.
-    textcolors
-        A pair of colors.  The first is used for values below a threshold,
-        the second for those above.  Optional.
-    threshold
-        Value in data units according to which the colors from textcolors are
-        applied.  If None (the default) uses the middle of the colormap as
-        separation.  Optional.
-    **kwargs
-        All other arguments are forwarded to each call to `text` used to create
-        the text labels.
-    """
-
-    if not isinstance(data, (list, np.ndarray)):
-        data = im.get_array()
-
-    # Normalize the threshold to the images color range.
-    if threshold is not None:
-        threshold = im.norm(threshold)
-    else:
-        threshold = im.norm(data.max())/2.
-
-    # Set default alignment to center, but allow it to be
-    # overwritten by textkw.
-    kw = dict(horizontalalignment="center",
-              verticalalignment="center")
-    kw.update(textkw)
-
-    # Get the formatter in case a string is supplied
-    if isinstance(valfmt, str):
-        valfmt = mpl.ticker.StrMethodFormatter(valfmt)
-
-    # Loop over the data and create a `Text` for each "pixel".
-    # Change the text's color depending on the data.
-    texts = []
-    for i in range(data.shape[0]):
-        for j in range(data.shape[1]):
-            kw.update(color=textcolors[int(im.norm(data[i, j]) > threshold)])
-            text = im.axes.text(j, i, valfmt(data[i, j], None), **kw)
-            texts.append(text)
-
-    return texts
 
 
 def kolmo_smir(data, plot=False):
@@ -475,301 +333,7 @@ def kolmo_smir(data, plot=False):
     return stats.kstest(data, n.cdf)
 
 
-class Header(object):
-    """
-    Given a .vhdr file from BrainVision, reads it and extracts
-    the useful information we can find within.
-
-    Initialisation:
-    Header(header_file): where header_file is the instance of the header file
-
-    Attributes:
-    self.data_file: the name of the data file where the EEG data is stored
-    self.marker_file: the name of the file where the data of the markers of the experiments is stored
-    self.data_orientation: wheter the data is in vectorized (ch1pt1 ch1pt2 ...) or multiplexed (ch1pt1 ch2pt1) form
-    self.data_type: time or frequency domain
-    self.number_channels: the number of eeg channels (taking references and oculars into account normally)
-    self.datapoints: the number of points of data in each channel
-    self.sampling_interval: the interval in microseconds between data points, in microseconds
-    self.sampling_frequency: the frequency of the signal, in hertz
-    self.decimal_symbol: the decimal symbol used in the data
-    self.segmentation_type: whether or not the way to segment the data is using markers
-    self.segment_datapoints: the number of markers in the experiment (?)
-    """
-
-    def __init__(self, header_file):
-        for line in header_file:
-            if "DataFile=" in line:
-                self.data_file = line.split("=")[1][:-1]
-            if "MarkerFile=" in line:
-                self.marker_file = line.split("=")[1][:-1]
-            if "DataOrientation=" in line:
-                self.data_orientation = line.split("=")[1]
-            if "DataType=" in line:
-                self.data_type = line.split("=")[1]
-            if "NumberOfChannels=" in line:
-                self.number_channels = int(line.split("=")[1])
-            if "DataPoints=" in line and not "datapoints" in locals():
-                self.datapoints = int(line.split("=")[1])
-            if "SamplingInterval=" in line:
-                self.sampling_interval = float(line.split("=")[1])
-                self.sampling_freq = 1000000 / self.sampling_interval
-            if "SegmentationType=" in line:
-                self.segmentation_type = line.split("=")[1]
-            if "SegmentDataPoints=" in line:
-                self.segment_datapoints = int(line.split("=")[1])
-            if "DecimalSymbol=" in line:
-                self.decimal_symbol = line.split("=")[1]
-
-
-class Marker(object):
-    """
-    Given a .vmrk file from BrainVision, reads it and extracts
-    the useful information we can find within.
-
-    Initialisation:
-    Marker(marker_file): where header_file is the instance of the marker file
-
-    Attributes:
-    self.segments: dictionaries containing information on the data segmentation. Each list represents
-        a data segment, containing the following information:
-            start_pos: the starting position (in data points) of the segment
-            audio_start_pos: the starting position (in data points) where the audio starts playing
-            audio_stim_pos: position where the right/wrong word is played
-            audio_end_pos: the ending position (in data points) of the audio
-            end_pos: the ending position (in data points) of the segment
-            face_stim: the code of the face stimulus (2 digit code)
-            audio_stim: the code of the auditory stimulus (not the file name, the 3 digit code)
-            correct: whether or not the answer of the subject was correct or not
-    self.segments_number: the number of segments
-
-    Methods:
-    experiment_crosscheck(subject_object): verify that the segments here are the same as the ones in the experiment info file.
-        Checks all the entries until the problem has been solved
-    """
-
-    def __init__(self, marker_file):
-
-        self.segments = []
-        step = "begin"
-
-        def new_segment():  # Create a new and clean maker holder for a segment
-            x = {"start": 0, "astart": 0, "astim": 0, "aend": 0,
-                 "end": 0, "fcode": 0, "acode": 0,
-                 "response_correct": False}
-            return x
-
-        for line in marker_file:
-
-            # If this is not a marker continue with the next line
-            if not "Mk" in line or "Mk<" in line:
-                continue
-
-            # Put the line nicely
-            tidy_line = segment_line(line)
-
-            # Get segment start
-            if step == "begin" and "New Segment" in tidy_line:
-                step = "new"
-                curr_segment = new_segment()
-                continue
-
-            # Search for the stimuli
-            if "Stimulus" in tidy_line:
-                # Obtain the face stimulus code and the data position
-                if step == "new" and int(tidy_line[2][1:]) < 99:
-                    curr_segment["fcode"] = int(tidy_line[2][1:])
-                    curr_segment["start"] = tidy_line[3]
-                    curr_segment["astart"] = tidy_line[3] + \
-                        125  # 500ms at 250Hz => 125 data points
-                    step = "acode"
-                    continue
-
-                # Obtain the audio stimulus code and data position
-                if step == "acode" and int(tidy_line[2][1:]) > 99:
-                    curr_segment["acode"] = int(tidy_line[2][1:])
-                    curr_segment["astim"] = tidy_line[3]
-                    step = "aend"
-                    continue
-
-                # Obtain the end of the audio stimulus
-                if step == "aend" and int(tidy_line[2][1:]) == 99:
-                    curr_segment["aend"] = tidy_line[3]
-                    step = "answer"
-                    continue
-
-                # Obtain end of segment and append to list
-                if step == "answer" and int(tidy_line[2][1:]) <= 3:
-                    curr_segment["end"] = tidy_line[3]
-                    curr_segment["response_correct"] = int(tidy_line[2][1:])
-                    self.segments.append(curr_segment)
-                    step = "begin"
-                    continue
-
-        self.segments_number = len(self.segments)
-
-    def experiment_crosscheck(self, subject_object):
-
-        difference = subject_object.trials_number - self.segments_number
-
-        logging.warning("Subject - dataEEG lenght diff: " +
-                        str(abs(difference)))
-
-        problematic_idx = []
-        idx = 0  # starting index
-
-        while difference != 0:
-            try:
-                assert(
-                    subject_object.trials[idx]["face_id"] == self.segments[idx]["fcode"])
-            except IndexError:
-                problematic_idx.append(idx)
-                if difference < 0:
-                    logging.warning(
-                        "Index out of range for subject obj. Deleting dataEEG obj. entry.")
-                    del self.segments[idx]
-                    logging.warning("Corrected succesfuly")
-                    difference += 1
-                elif difference > 0:
-                    logging.warning(
-                        "Index out of range for dataEEG obj. Deleting subject obj. entry.")
-                    del subject_object.trials[idx]
-                    logging.warning("Corrected succesfuly")
-                    difference -= 1
-                idx -= 2  # review last index
-            except AssertionError:
-                problematic_idx.append(idx)
-                logging.warning("Trial with index " + str(idx) + " has face_ids that do not match between both files. " +
-                                "EXP: " + str(subject_object.trials[idx]["face_id"]) + " MARK: " + str(self.segments[idx]["fcode"]) + ". Deleting the entry from the file with most entries.")
-                if difference > 0:
-                    if subject_object.trials[idx+1]["face_id"] == self.segments[idx]["fcode"]:
-                        logging.warning(
-                            "Incorrect trial on subject object. Deleting entry.")
-                        del subject_object.trials[idx]
-                        logging.warning("Corrected succesfully")
-                        difference -= 1
-                elif difference < 0:
-                    if subject_object.trials[idx]["face_id"] == self.segments[idx+1]["fcode"]:
-                        logging.warning(
-                            "Incorrect trial on dataEEG object. Deleting entry.")
-                        del self.segments[idx]
-                        logging.warning("Corrected succesfully")
-                        difference += 1
-                elif difference == 0:
-                    logging.critical(
-                        "Same number of trials but faces still different!")
-                    break
-
-            if difference == 0:
-                logging.warning("Differences reduced to zero.")
-                break   # breaks for loop
-
-            idx += 1
-
-        logging.warning(
-            "Problematic indeces pre-correction: " + str(problematic_idx))
-        logging.warning("Difference level: " + str(difference))
-
-
-class DataEEG(object):
-    """
-    Given a data file in VECTORIZED form (careful with this), it puts the data into a dictionary
-
-    Attributes:
-    self.channels: dictionary with the channels as keys and the values as values
-
-    Methods:
-    segment_data(marker_object, release=True): segments the data of the channels. See its documentation
-    """
-
-    def __init__(self, data_file):
-        # Parse the whole .dat file with the EEG data inside.
-        self.channels = {}
-        for line in data_file:
-            key = line.split()[0]
-            data = np.array([float(item)
-                             for item in line.replace(",", ".").split()[1:]])
-            self.channels[key] = data
-
-    def segment_data(self, marker_object, release=True):
-        """
-        Given a marker object the method segments the data into the segments indicated
-        by said object. 
-        Creates the attribute data_segments, which is a list containing all the segments 
-        (each one being a dictionary with the channels as keys and the values being lists
-        with the EEG values). Also creates data_segments_number, giving the number of segments.
-        If release = True, it will delete the self.channels attribute not
-        to have an object with too much memory occupied.
-        """
-        self.data_segments = []
-        for segment in marker_object.segments:
-            segment_data = {}
-            for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]                                                       :segment["end"]]
-            self.data_segments.append(segment_data)
-        if release == True:
-            del self.channels
-        self.data_segments_number = len(self.data_segments)
-
-
-class Subject(object):
-    """
-    Given a .txt file with the info of each trial from the experiment,
-    store it in a convinient way to cross reference it with the data segments.
-
-    Initialisation:
-    Subject(experiment_file): where experiment_file is the instance of the experiment file
-
-    Attributes:
-    self.trials: list containing a dict for each trial. The keys and explanation of values are:
-        subject_id: will probably be the same for each trial. ID of the subject.
-        sentence_id: the ID of the sentence the subject heard
-        voice: the ID of the voice that read the sentence
-        correct: whether or not the sentence was sintactically correct or not
-        scrambled: whether or not the shown face was scrambled
-        soundfile: the soundfile that played in the background
-        face_id: the ID of the face that was shown in the trial
-        RT: response time from the query, in ms
-    self.trials_number: number of trials
-    """
-
-    def __init__(self, experiment_file):
-        self.trials = []
-        for line in experiment_file:
-            # Ignore the first row
-            if "sentenceID" in line:
-                continue
-
-            trial = {}
-            LINE = line.split()
-            trial["subject_id"] = int(LINE[0])
-            trial["sentence_id"] = int(LINE[1][1:])
-            trial["voice"] = int(LINE[2][1:])
-            if LINE[3] == "c":
-                trial["correct"] = True
-            else:
-                trial["correct"] = False
-            if LINE[4] == "s":
-                trial["scrambled"] = True
-            else:
-                trial["scrambled"] = False
-            trial["soundfile"] = LINE[5]
-
-            try:
-                assert(facecode(LINE[6]) == int(LINE[7]))
-                trial["face_id"] = int(LINE[7])
-            except:
-                logging.critical("The experiment file is broken, " +
-                                 "the facestim from the same trial does not match itself. Trial n. " +
-                                 str(len(trial.keys())+1))
-            trial["RT"] = int(LINE[8])
-
-            self.trials.append(trial)
-
-        self.trials_number = int(len(self.trials))
-
-
-class AudioStim(object):
+class AudioStim:
     """
     A class meant to contain the audio files of the sentences
     the subject hear during the experiment.
@@ -808,7 +372,7 @@ class AudioStim(object):
         wavfile.write(path, int(self.rate), self.data)
 
 
-class Segment(object):
+class Segment:
     """This class makes the usage of the segment files easier"""
 
     def __init__(self, file_path):
@@ -879,6 +443,24 @@ class Segment(object):
         else:
             return "scrambled"
 
+    def is_correct(self):
+        """Returns boolean. True if the sentence is correct,
+        False if the sentence is incorrect"""
+
+        if self.audio_code[0] == "1":
+            return True
+        else:
+            return False
+
+    def is_correct_kw(self):
+        """Returns a string. If the sentence was correct
+        returns "correct". If not, returns "incorrect"""
+
+        if self.audio_code[0] == "1":
+            return "correct"
+        else:
+            return "incorrect"
+
     def dump_eyes(self):
         """Deletes the channels related to eye movements.
         These channels are labelled HEOG, HEOG+, VEOG, VEOG+
@@ -902,7 +484,7 @@ class Segment(object):
             del(self.channels[reference_label])
 
 
-class MutualInformation(object):
+class MutualInformation:
     def __init__(self):
         """ Initialization of object """
         pass
@@ -983,17 +565,17 @@ class MutualInformation(object):
         # phase.
 
         if self.mode.lower() == "phase":
-            hist_audio_phs, _ = np.histogram(
+            self.hist_audio_phs, _ = np.histogram(
                 np.angle(self.analytic_audio), bins=self.discretization)
             self.mi = {}
             for band in self.segment.bp_channels.keys():
                 self.mi[band] = {}
                 for channel, signal in self.segment.bp_channels[band].items():
-                    histphase, _ = np.histogram(
+                    self.histphase, _ = np.histogram(
                         np.angle(self.analytic_eeg[band][channel]), bins=self.discretization)
 
                     self.mi[band][channel] = hist_mutual_info(
-                        histphase, hist_audio_phs)
+                        self.histphase, self.hist_audio_phs)
 
         elif self.mode.lower() == "envelope":
             hist_audio_phs, _ = np.histogram(
@@ -1117,9 +699,8 @@ class MutualInformation(object):
                 try:
                     self.discretization
                 except AttributeError:
-                    self.discretization = eval(
-                        line.replace("\n", "").replace(" ", ",").replace(",,", ",").split(">>>")[-1])
-                    continue
+                    self.discretization = [
+                        float(num) for num in re.findall("-?\d*\.\d*", line)]
 
                 try:
                     self.comments
@@ -1137,136 +718,3 @@ class MutualInformation(object):
                 for index in range(len(splitline)):
                     self.mi[band][self.channels_labels[index]
                                   ] = splitline[index]
-
-
-def segment_all_data(data_folder_path, segments_folder_path):
-
-    logging.debug("Start with the segment_all_data function")
-    logging.debug("Define the file path lists according to the folder paths")
-
-    if "\\" in data_folder_path:  # Adapt file paths to Windows
-        header_file_paths = glob.glob(data_folder_path + r"*.vhdr")
-        marker_file_paths = glob.glob(data_folder_path + r"*.vmrk")
-        data_file_paths = glob.glob(data_folder_path + r"*.dat")
-        experiment_file_paths = glob.glob(data_folder_path + r"*_ExpSynt.txt")
-        # audio_file_paths = glob.glob(multimedia_folder_path + r"\*.wav")
-        # picture_file_paths = glob.glob(multimedia_folder_path + r"\*.jpg")
-    else:  # Sort the list for linux
-        # Here I sort the lists because if not it will raise an error later
-        header_file_paths = glob.glob(data_folder_path + "*.vhdr")
-        header_file_paths.sort()
-        marker_file_paths = glob.glob(data_folder_path + "*.vmrk")
-        marker_file_paths.sort()
-        data_file_paths = glob.glob(data_folder_path + "*.dat")
-        data_file_paths.sort()
-        experiment_file_paths = glob.glob(data_folder_path + "*_ExpSynt.txt")
-        experiment_file_paths.sort()
-
-    logging.debug("Start iterating over all the files \n\n")
-
-    for j in range(len(header_file_paths)):  # Start processing by subject
-
-        logging.info("Starting to process file " +
-                     os.path.split(header_file_paths[j])[-1])
-
-        header_file_path = header_file_paths[j]
-        marker_file_path = marker_file_paths[j]
-        data_file_path = data_file_paths[j]
-        experiment_file_path = experiment_file_paths[j]
-
-        logging.debug("Create header object")
-        with open(header_file_path, "r") as header_file:
-            header = Header(header_file)
-            assert(os.path.split(data_file_path)
-                   [-1] == header.data_file)
-            assert(os.path.split(marker_file_path)
-                   [-1] == header.marker_file)
-
-        logging.debug("Create marker object")
-        with open(marker_file_path, "r") as marker_file:
-            marker = Marker(marker_file)
-
-        logging.debug("The number of marker_segments is: " +
-                      str(marker.segments_number))
-
-        logging.debug("Create subject object")
-
-        with open(experiment_file_path, "r") as exp_file:
-            subject = Subject(exp_file)
-
-        logging.debug(
-            "The number of trials given by the experiment file is: " + str(subject.trials_number))
-
-        logging.debug("Crosscheck markers-experiment")
-        marker.experiment_crosscheck(subject)
-
-        logging.debug("Create DataEEG object (could take up to a minute)")
-        with open(data_file_path, "r") as data_file:
-            data = DataEEG(data_file)
-
-        logging.debug("Chop data into segments")
-        data.segment_data(marker, release=True)
-
-        logging.debug("The number of data segments is: " +
-                      str(data.data_segments_number))
-
-        logging.debug("Define and create the folder the segmented data files")
-
-        # Try to create segments' folder, will return error if already exists
-        try:
-            os.mkdir(segments_folder_path)
-        except:
-            print("Segment folder already existed, continuing")
-
-        logging.debug("Starting to create files containing the segments")
-
-        for i in range(data.data_segments_number):
-            if sys.platform[:3] == "win":
-                segment_file = open(segments_folder_path + "\\sujeto_" + str(subject.trials[0]["subject_id"]) +
-                                    "_segmento_" + str(i+1) + ".dat", "w")
-            else:
-                segment_file = open(segments_folder_path + "/sujeto_" + str(subject.trials[0]["subject_id"]) +
-                                    "_segmento_" + str(i+1) + ".dat", "w")
-            face_code = marker.segments[i]["fcode"]
-            audio_code = marker.segments[i]["acode"]
-            audio_file_name = subject.trials[i]["soundfile"]
-            audio_start = marker.segments[i]["astart"] - \
-                marker.segments[i]["start"]
-            stim_start = marker.segments[i]["astim"] - \
-                marker.segments[i]["start"]
-            audio_end = marker.segments[i]["aend"] - \
-                marker.segments[i]["start"]
-            metadata = "FaceCode: " + str(face_code) + " AudioCode: " + \
-                str(audio_code) + " AudioFile: " + str(audio_file_name) + \
-                " AudioStart: " + str(audio_start) + " StimStart: " + \
-                str(stim_start) + " AudioEnd: " + str(audio_end) + "\n"
-            segment_file.write(metadata)
-            for key in data.data_segments[i].keys():
-                line = key + " " + \
-                    str(list(data.data_segments[i][key]))[
-                        1:-1].replace(", ", " ") + "\n"
-                segment_file.write(line)
-            segment_file.close()
-
-    logging.debug("End of segment_all_data function")
-    return None
-
-
-if __name__ == "__main__":
-
-    # File paths should be defined differently whether running windows or other OS
-    data_folder_path = "../raw_Data/EEG/"
-    multimedia_folder_path = "../raw_Data/Stimuli/"
-    segments_folder_path = "../Data/segments/"
-
-    if sys.platform[:3] == "win":
-        data_folder_path = data_folder_path.replace("/", "\\")
-        multimedia_folder_path = multimedia_folder_path.replace("/", "\\")
-        segments_folder_path = segments_folder_path.replace("/", "\\")
-
-    logging.info("Start of program. Script running as main")
-    logging.debug("Define the folder paths")
-
-    logging.debug("Run the segment_all_data function")
-    segment_all_data(data_folder_path, segments_folder_path)
-    logging.info("End of script (as main)")
