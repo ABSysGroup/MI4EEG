@@ -128,17 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Data and quick exports
-raw_Data/
-preprocessed_data/
-results/
-src/quick_exports/
-
-# Vscode and Mac stuff
-src/.vscode/launch.json
-.DS_Store
-../.DS_Store
-
+# Data
+*.vhdr
+*.vmrk
 # Data files
 *.dat
 *.xlsx
@@ -146,7 +138,20 @@ src/.vscode/launch.json
 *.mi
 *.json
 *.txt
+*.docx
+*.zip
+
+# Vscode
+src/.vscode/launch.json
+
+
 
 # Stimuli
 *.wav
+*.jpg
+
+# Notebooks
+*.ipynb
+
+# ???
 .DS_Store
