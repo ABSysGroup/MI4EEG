@@ -1,3 +1,26 @@
+"""Handle all the files output by BrainVision Analyser.
+
+Most of our experiments are exported in 4 different files: header files
+(.vhdr), marker files (.vmrk), the EEG in a data file (.dat) and the
+file that contains the information of the experiment and its trials
+(which is a .txt). With this in mind, this module is created to be able
+to handle all these files and to be able to segment the data using the
+information from the different metadata files, writing .dat files of
+its own that contain all the information needed to process it on its 
+own.
+
+Classes
+----------
+BrainvisionHeader: Handles .vhdr files
+BrainvisionMarker: Handles .vmrk files
+BrainvisionDat: Handles the .dat files that contain EEG info exported 
+    from BrainVision
+BrainvisionExp: Handles the .txt files that contain the trials' info
+BrainvisionWrapper: A wrapper that uses previously defined classes to
+    unify all the contents of an experiment. It allows us to segment
+    the data.
+"""
+
 import numpy
 import glob
 import sys
@@ -9,7 +32,7 @@ logging.basicConfig(level=logging.DEBUG,
                     format=" %(asctime)s - %(levelname)s - %(message)s")
 
 
-def segment_vmrk_line(line):
+def segment_vmrk_line(line: str) -> int, str, str, int, int, str:
     """Obtain markers for the experiments from the markers file
     Returns a tuple with the following info:
     Marker number, marker type, marker description, marker data point position,
