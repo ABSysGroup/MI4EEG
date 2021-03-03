@@ -335,38 +335,51 @@ class BrainvisionExp:
 
     def __init__(self, experiment_file):
         self.trials = []
+        trial_keys = []
         for line in experiment_file:
-            # Ignore the first row
-            if "sentenceID" in line:
+            elements = line.split()
+
+            # Save first row elements as keys
+            if trial_keys == []:
+                trial_keys = elements
                 continue
-
+            
+            # Initialize trial dictionary
             trial = {}
-            LINE = line.split()
-            trial["subject_id"] = int(LINE[0])
-            trial["sentence_id"] = int(LINE[1][1:])
-            trial["voice"] = int(LINE[2][1:])
-            if LINE[3] == "c":
-                trial["correct"] = True
-            else:
-                trial["correct"] = False
-            if LINE[4] == "s":
-                trial["scrambled"] = True
-            else:
-                trial["scrambled"] = False
-            trial["soundfile"] = LINE[5]
+            
+            for idx, key in enumerate(trial_keys):
+                trial[key] = elements[idx]
 
+            self.number_of_trials = int(len(self.trials))
+
+    def check_trial_consistency(self, fun, delete=True):
+        """ This method checks each trial for internal consistency using the external funcion
+        fun. If delete is set to True, the trials that are inconsistent are removed.
+        The fun function should return True when the trial is consistent and False
+        when it is not"""
+        inconsistencies = []
+        for idx, trial in enumerate(self.trials):
             try:
-                assert(facecode(LINE[6]) == int(LINE[7]))
-                trial["face_id"] = int(LINE[7])
+                assert fun(trial)
             except:
-                logging.critical("The experiment file is broken, " +
-                                 "the facestim from the same trial does not match itself. Trial n. " +
-                                 str(len(trial.keys())+1))
-            trial["RT"] = int(LINE[8])
+                logging.warning("Trial {} is inconsistent with itself.".format(idx + 1))
+                inconsistencies.append(idx)
 
-            self.trials.append(trial)
+        if not delete:
+            return inconsistencies
+        else:
+            logging.warning("Deleting {} inconsistent trials".format(len(inconsistencies)))
+            for idx in sorted(inconsistencies, reverse=True):
+                del(self.trials[idx])
+            return None
 
-        self.trials_number = int(len(self.trials))
+    def redefine_values(self, fun):
+        """Redefines values of the trials according to fun for each trial."""
+        for idx, trial in enumerate(self.trials):
+            try:
+                fun(trial)
+            except Exception as error:
+                logging.error("An error has ocurred redefining values at index {} with error: {}".format(idx, error))
 
 
 class BrainvisionWrapper:

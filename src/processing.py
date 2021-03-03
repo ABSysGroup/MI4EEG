@@ -465,9 +465,10 @@ class Segment:
         """Deletes the channels related to eye movements.
         These channels are labelled HEOG, HEOG+, VEOG, VEOG+
         """
-
         for label in ["HEOG", "HEOG+", "VEOG", "VEOG+"]:
-            del self.channels[label]
+            if label in self.channels.keys():
+                del self.channels[label]
+
 
     def subtract_reference(self, reference_label="M1", rm_ref=False):
         """This method subtracts the reference electrode
@@ -533,7 +534,7 @@ class MutualInformation:
         else:
             self.audio_corr = "error"
 
-    def compute(self, audio_data, audio_fs, crop_audio=True, dump_eyes=True, sub_ref=False):
+    def compute(self, audio_data, audio_fs, crop_audio=True, dump_eyes=True, sub_ref=False, from_stim=False):
 
         if self.segment == "loaded":
             print("This file was loaded from a .mi file, data's already available.")
@@ -557,6 +558,18 @@ class MutualInformation:
             self.analytic_eeg[band] = {}
             for channel, signal in self.segment.bp_channels[band].items():
                 self.analytic_eeg[band][channel] = snl.hilbert(signal)
+
+
+        # If you want to analyse the data from the stimulus, we cut the data.
+        # It is done after bandpassing and hilber transform to minimise border effects
+        if from_stim:
+            new_start = self.segment.audio_stim_point
+            # proportional start for the audio, M1 as sample channel, no real reason
+            audio_start = (self.segment.audio_stim_point//len(self.segment.channels["M1"]))*len(self.analytic_audio)
+            self.analytic_audio = self.analytic_audio[int(audio_start):]
+            for band in self.analytic_eeg.keys():
+                for channel in self.analytic_eeg[band].keys():
+                    self.analytic_eeg[band][channel] = self.analytic_eeg[band][channel][int(new_start):]
 
         # Now, remember that the instant phase is the angle of the
         # analytic signal, the instant amplitude, or envelope,
