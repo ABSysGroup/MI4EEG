@@ -14,6 +14,7 @@ Three arguments are required when calling the script:
 TODO: Create log file indicating things like rate % factor != 0,
     float(factor) != int(factor), new_rate != int(new_rate), etc.
 """
+
 from utils import check_directory
 from progress.bar import Bar
 from scipy.io import wavfile
@@ -33,7 +34,7 @@ file_paths = glob.glob(os.path.join(from_dir, "*.wav"))
 
 bar = Bar('Downsampling audio files', max=len(file_paths))
 
-rate_warning = False # Flag for skipping rate check
+rate_warning = False  # Flag for skipping rate check
 
 for path in file_paths:
     filename = os.path.split(path)[1]
