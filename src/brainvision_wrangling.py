@@ -403,11 +403,12 @@ class BrainvisionLog:
 
         for idx, trial in enumerate(self.trials):
             try:
-                fun(trial)
+                new_trial = fun(trial)
+                if new_trial != None:
+                    self.trials[idx] = result
             except Exception as error:
                 logging.error(
                     "An error has ocurred redefining values at index {} with error: {}".format(idx, error))
-
 
 class BrainvisionWrapper:
     """Wrapper that loads all the data exported from BrainVision.
