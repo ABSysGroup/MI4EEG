@@ -301,7 +301,8 @@ class BrainvisionDat:
             segment_data = {}
             segment_data["metadata"] = segment
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]:segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]
+                    :segment["end"]]
             self.data_segments.append(segment_data)
         if release:
             del self.channels
@@ -409,6 +410,7 @@ class BrainvisionLog:
             except Exception as error:
                 logging.error(
                     "An error has ocurred redefining values at index {} with error: {}".format(idx, error))
+
 
 class BrainvisionWrapper:
     """Wrapper that loads all the data exported from BrainVision.
