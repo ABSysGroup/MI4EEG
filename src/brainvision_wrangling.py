@@ -312,6 +312,9 @@ class BrainvisionLog:
     """Given a logfile with the information from the experiment, store it
     in a convinient way to cross reference it with the data segments.
 
+    IMPORTANT: These log files are probably exported from the software
+    used to do the experiment (Presentation, https://www.neurobs.com/).
+
     Attributes:
     ----------
     trials: list
@@ -334,23 +337,24 @@ class BrainvisionLog:
     def __init__(self, log_path: str):
         self.trials = []
         trial_keys = []
-        log_file = open(log_path, "r")
-        for line in log_file:
-            elements = line.split()
+        with open(log_path, "r") as log_file:
+            for line in log_file:
+                elements = line.replace("\n", "").split("\t")
 
-            # Save first row elements as keys
-            if trial_keys == []:
-                trial_keys = elements
-                continue
+                # Save first row elements as keys
+                if trial_keys == []:
+                    trial_keys = elements
+                    continue
 
-            # Initialize trial dictionary
-            trial = {}
+                # Initialize trial dictionary
+                trial = {}
 
-            for idx, key in enumerate(trial_keys):
-                trial[key] = elements[idx]
+                for idx, key in enumerate(trial_keys):
+                    trial[key] = elements[idx]
+
+                self.trials.append(trial)
 
         self.number_of_trials = int(len(self.trials))
-        log_file.close()
 
     def check_inner_trial_consistency(self, fun, delete: bool = True):
         """This method checks each trial for internal consistency, since
