@@ -75,21 +75,6 @@ def segment_vmrk_line(line: str) -> (int, str, str, int, int, str):
     return dictionary
 
 
-def facecode(filename: str) -> int:
-    """ Translates the string facestim id to the numerical ones """
-    faceid = filename[1]
-    if filename[2] == "n":
-        scr = "1"
-    elif filename[2] == "s":
-        scr = "2"
-    else:
-        scr = "0"
-    facecode = scr + faceid
-    return int(facecode)
-
-# Define classes
-
-
 class BrainvisionHeader:
     """
     Opens a header file from Brainvision and stores relevant information
@@ -262,6 +247,7 @@ class BrainvisionMarker:
 
             self.segments_number = len(self.marker_segments)
 
+
 class BrainvisionDat:
     """Puts data from a VECTORIZED data file into a dictionary.
 
@@ -315,7 +301,7 @@ class BrainvisionDat:
             segment_data = {}
             segment_data["metadata"] = segment
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]                                                       :segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]:segment["end"]]
             self.data_segments.append(segment_data)
         if release:
             del self.channels
