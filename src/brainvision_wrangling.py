@@ -161,7 +161,7 @@ class BrainvisionMarker:
             correct: whether or not the answer of the subject was
                 correct or not
 
-    segments_number: int
+    number_of_segments: int
         the number of segments
 
     Methods
@@ -245,7 +245,7 @@ class BrainvisionMarker:
                         step = "begin"
                         continue
 
-            self.segments_number = len(self.marker_segments)
+            self.number_of_segments = len(self.marker_segments)
 
 
 class BrainvisionDat:
