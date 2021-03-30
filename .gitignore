@@ -136,10 +136,10 @@ dmypy.json
 *.xlsx
 *.csv
 *.mi
-*.json
 *.txt
 *.docx
 *.zip
+*.json
 
 # Vscode
 src/.vscode/launch.json
@@ -149,6 +149,7 @@ src/.vscode/launch.json
 # Stimuli
 *.wav
 *.jpg
+*.bmp
 
 # Notebooks
 *.ipynb
