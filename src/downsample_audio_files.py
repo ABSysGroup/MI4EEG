@@ -22,42 +22,47 @@ import glob
 import sys
 import os
 
-if len(sys.argv) != 4:
-    print("There should be 3 arguments passed. Check docs.")
-    sys.exit(1)
+def main(from_dir_str, to_dir_str, factor_str):
 
-from_dir = check_directory(sys.argv[1])
-to_dir = check_directory(sys.argv[2])
-factor = int(sys.argv[3])
+    from_dir = check_directory(from_dir_str)
+    to_dir = check_directory(to_dir_str)
+    factor = int(factor_str)
 
-file_paths = glob.glob(os.path.join(from_dir, "*.wav"))
+    file_paths = glob.glob(os.path.join(from_dir, "*.wav"))
 
-bar = Bar('Downsampling audio files', max=len(file_paths))
+    bar = Bar('Downsampling audio files', max=len(file_paths))
 
-rate_warning = False  # Flag for skipping rate check
+    rate_warning = False  # Flag for skipping rate check
 
-for path in file_paths:
-    filename = os.path.split(path)[1]
+    for path in file_paths:
+        filename = os.path.split(path)[1]
 
-    rate, data = wavfile.read(path)
+        rate, data = wavfile.read(path)
 
-    if rate % factor != 0:
-        if not rate_warning:
-            print("WARNING: Rate should be multiple of factor")
-            print(f"Rate: {rate}, new rate would be {rate/factor}.")
-            a = input(f"Do you want to use {rate//factor} as rate? [y/n] ")
-            if a == "y":
-                rate_warning = True
-                print(f"Using {rate//factor} as new rate.")
-            else:
-                print("Aborting...")
-                sys.exit(1)
+        if rate % factor != 0:
+            if not rate_warning:
+                print("WARNING: Rate should be multiple of factor")
+                print(f"Rate: {rate}, new rate would be {rate/factor}.")
+                a = input(f"Do you want to use {rate//factor} as rate? [y/n] ")
+                if a == "y":
+                    rate_warning = True
+                    print(f"Using {rate//factor} as new rate.")
+                else:
+                    print("Aborting...")
+                    sys.exit(1)
 
-    data = data[::factor]
-    rate = rate//factor
+        data = data[::factor]
+        rate = rate//factor
 
-    wavfile.write(os.path.join(to_dir, filename), rate, data)
-    bar.next()
+        wavfile.write(os.path.join(to_dir, filename), rate, data)
+        bar.next()
 
-bar.finish()
-print("Audio files downsampled.")
+    bar.finish()
+    print("Audio files downsampled.")
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print("There should be 3 arguments passed. Check docs.")
+        sys.exit(1)
+    main(sys.argv[1], sys.argv[2], sys.argv[3])
