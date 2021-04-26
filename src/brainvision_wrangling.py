@@ -486,15 +486,14 @@ class BrainvisionWrapper:
         bar = IncrementalBar("Saving segments",
                              max=len(self.dat.data_segments))
 
-        segment_number = 1
+        segment_number = 0
 
         for sgmnt in self.dat.data_segments:
 
-            file_name = (str(self.log.trials[0]["subject_id"])
-                         + "_segmento_" + str(segment_number) + ".json")
+            file_name = "sujeto_{}_segmento_{}.json".format(
+                str(self.log.trials[0]["subject"]), segment_number+1)
 
-            file_path = os.path.join(segments_folder_path, "sujeto_",
-                                     file_name)
+            file_path = os.path.join(segments_folder_path, file_name)
 
             # We have to "flip inside-out" the metadata and data
             metadata = sgmnt["metadata"]
@@ -510,10 +509,12 @@ class BrainvisionWrapper:
             for key in sgmnt.keys():
                 if key == "metadata":
                     continue
-                json_data["channels"][key] = sgmnt[key]
+                json_data["channels"][key] = sgmnt[key].tolist()
 
             with open(file_path, "w") as json_file:
                 json.dump(json_data, json_file)
+
+            segment_number += 1
 
             bar.next()
         bar.finish()
