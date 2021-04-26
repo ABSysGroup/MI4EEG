@@ -20,9 +20,9 @@ import os
 import sys
 import glob
 
-from brainvision_wrangling import BrainvisionWrapper
-from utils import check_directory
 from progress.bar import Bar
+from utils import check_directory
+from brainvision_wrangling import BrainvisionWrapper
 
 
 def synched_pop(dictionary: dict, position: int = 0) -> dict:
@@ -48,32 +48,35 @@ def synched_pop(dictionary: dict, position: int = 0) -> dict:
         buffer[key] = dictionary[key].pop(position)
     return buffer
 
+def main(data_folder_path, segment_folder_path):
+    # Parse the paths and check if the directories exist or not
+    data_folder = check_directory(data_folder_path)
+    segment_folder = check_directory(segment_folder_path)
 
+    # To get the files, we use glob, sorting them to avoid problems.
+    file_formats = (("headers", ".vhdr"),
+                    # ("markers", ".vrmk"),
+                    # ("data", ".dat"),
+                    ("logs", ".txt"))
+    file_paths = {}
 
-data_folder = check_directory(sys.argv[1])
-segment_folder = check_directory(sys.argv[2])
-
-# To get the files, we use glob. We sort the to avoid problems.
-file_formats = (("headers", ".vhdr"),
-                # ("markers", ".vrmk"),
-                # ("data", ".dat"),
-                ("logs", ".txt"))
-file_paths = {}
-
-for name, ending in file_formats:
-    file_paths[name] = sorted(glob.glob(os.path.join(data_folder,
+    for name, ending in file_formats:
+        file_paths[name] = sorted(glob.glob(os.path.join(data_folder,
                                                         "*" + ending)))
 
-# Create progress bar to make script more friendly
-bar = Bar('Segmenting data', max=len(file_paths["headers"])*2)
+    # Create progress bar to make script more friendly
+    bar = Bar('Segmenting data', max=len(file_paths["headers"])*2)
 
-# Iterate until no more files are left
-while len(file_paths["headers"]) > 0:
-    bar.next()
-    current_files = synched_pop(file_paths)
-    wrapper = BrainvisionWrapper(current_files["headers"],
+    # Iterate until no more files are left
+    while len(file_paths["headers"]) > 0:
+        bar.next()
+        current_files = synched_pop(file_paths)
+        wrapper = BrainvisionWrapper(current_files["headers"],
                                     current_files["logs"])
-    wrapper.segment_data()
-    wrapper.save_segmented_data(segment_folder)
-    bar.next()
-bar.finish()
+        wrapper.segment_data()
+        wrapper.save_segmented_data(segment_folder)
+        bar.next()
+    bar.finish()
+
+if __name__ == "__main__":
+    main(sys.argv[1], sys.argv[2])
