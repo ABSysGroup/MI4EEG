@@ -330,8 +330,8 @@ classdef analysis < matlab.apps.AppBase
             [b2,a2] = butter(3,fc_2/(app.fs/2),'high'); %freqz(b,a)
             
             function result = filter_channel(channel)
-                channel=app.filter(b1,a1,channel);
-                result=app.filter(b2,a2,channel);
+                channel=filter(b1,a1,channel);
+                result=filter(b2,a2,channel);
             end
             
             app.Fp1_filtred=filter_channel(app.Fp1);
