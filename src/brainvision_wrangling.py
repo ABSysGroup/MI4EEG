@@ -37,7 +37,7 @@ logging.disable(logging.CRITICAL)
 # Define functions
 
 
-def segment_vmrk_line(line: str) -> (int, str, str, int, int, str):
+def segment_vmrk_line(line: str) -> dict:
     """Separate a line into different information points.
 
     Parameters
@@ -64,6 +64,13 @@ def segment_vmrk_line(line: str) -> (int, str, str, int, int, str):
 
     # Match the regex
     result = re.search(pattern, line.replace(" ", ""))
+
+    # If there was no regex match return a fake dummy dictionary
+    if type(result) == type(None):
+        dictionary = {"numer": 0, "type": "dummy", "description":
+                      "there was no RegEx match", "position": 0, "size": 0,
+                      "channel": None}
+        return dictionary
 
     # Define the keys
     keys = ["number", "type", "description", "position", "size",
@@ -301,8 +308,7 @@ class BrainvisionDat:
             segment_data = {}
             segment_data["metadata"] = segment
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]
-                    :segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]                                                       :segment["end"]]
             self.data_segments.append(segment_data)
         if release:
             del self.channels
@@ -311,7 +317,7 @@ class BrainvisionDat:
 
 class BrainvisionLog:
     """Given a logfile with the information from the experiment, store it
-    in a convinient way to cross reference it with the data segments.
+    in a convenient way to cross reference it with the data segments.
 
     IMPORTANT: These log files are probably exported from the software
     used to do the experiment (Presentation, https://www.neurobs.com/).
@@ -406,7 +412,7 @@ class BrainvisionLog:
             try:
                 new_trial = fun(trial)
                 if new_trial != None:
-                    self.trials[idx] = result
+                    self.trials[idx] = new_trial
             except Exception as error:
                 logging.error(
                     "An error has ocurred redefining values at index {} with error: {}".format(idx, error))
@@ -468,6 +474,26 @@ class BrainvisionWrapper:
 
         self.dat.segment_data(self.vmrk, release)
 
+    def check_segments_consistency(self):
+        """Since the data for the segments is obtained from different
+        sources (BrainVisionAnalyzer and Presentation) more often than
+        not the number of trials is different between log and marker
+        files. For that purpose, this function wants to check the
+        segments given by the markers and by the log and get rid of the
+        ones that are not present in both"""
+
+        vmkr_segments = self.vmrk.number_of_segments
+        log_segments = self.log.number_of_trials
+
+        # Get difference, normally log file has more segments
+        difference = log_segments - vmkr_segments
+
+        # Use file with least segments as "ground truth"
+        if difference > 0: # log file has more segments
+            pass
+        else: # vmrk file has more segments
+            pass
+
     def save_segmented_data(self, segments_folder_path: str):
         """Saves segmented data to json files for further processing.
 
@@ -482,39 +508,47 @@ class BrainvisionWrapper:
 
         check_directory(segments_folder_path)
 
+        # PRINT NUMBER OF SEGMENTS [[DEBUG]]
+        print("Number of segments")
+        print("DAT: " + str(len(self.dat.data_segments)))
+        print("MRK: " + str(self.vmrk.number_of_segments))
+        print("LOG: " + str(self.log.number_of_trials))
+
         # Create a bar to display progress of saving to files
         bar = IncrementalBar("Saving segments",
-                             max=len(self.dat.data_segments))
+                             max=self.log.number_of_trials)
 
         segment_number = 0
 
         for sgmnt in self.dat.data_segments:
+            try:
+                file_name = "sujeto_{}_segmento_{}.json".format(
+                    str(self.log.trials[0]["subject"]), segment_number+1)
 
-            file_name = "sujeto_{}_segmento_{}.json".format(
-                str(self.log.trials[0]["subject"]), segment_number+1)
+                file_path = os.path.join(segments_folder_path, file_name)
 
-            file_path = os.path.join(segments_folder_path, file_name)
+                # We have to "flip inside-out" the metadata and data
+                metadata = sgmnt["metadata"]
 
-            # We have to "flip inside-out" the metadata and data
-            metadata = sgmnt["metadata"]
+                json_data = {"face_code": metadata["face_code"],
+                             "audio_code": metadata["audio_code"],
+                             "audio_file_name": self.log.trials[segment_number]["soundfile"],
+                             "audio_start_position": metadata["audio_start"] - metadata["start"],
+                             "audio_end_position": metadata["audio_end"] - metadata["start"],
+                             "trigger_position": metadata["stim_pos"] - metadata["start"],
+                             "channels": {}}
 
-            json_data = {"face_code": metadata["face_code"],
-                         "audio_code": metadata["audio_code"],
-                         "audio_file_name": self.log.trials[segment_number]["soundfile"],
-                         "audio_start_position": metadata["audio_start"] - metadata["start"],
-                         "audio_end_position": metadata["audio_end"] - metadata["start"],
-                         "trigger_position": metadata["stim_pos"] - metadata["start"],
-                         "channels": {}}
+                for key in sgmnt.keys():
+                    if key == "metadata":
+                        continue
+                    json_data["channels"][key] = sgmnt[key].tolist()
 
-            for key in sgmnt.keys():
-                if key == "metadata":
-                    continue
-                json_data["channels"][key] = sgmnt[key].tolist()
+                with open(file_path, "w") as json_file:
+                    json.dump(json_data, json_file)
 
-            with open(file_path, "w") as json_file:
-                json.dump(json_data, json_file)
-
-            segment_number += 1
+                segment_number += 1
+            except Exception as error:
+                print("Something went wrong: " + str(error))
 
             bar.next()
         bar.finish()

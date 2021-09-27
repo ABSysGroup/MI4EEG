@@ -70,6 +70,7 @@ def main(data_folder_path, segment_folder_path):
     # Iterate until no more files are left
     while len(file_paths["headers"]) > 0:
         bar.next()
+        print("\n Working on " + file_paths["headers"][0])
         current_files = synched_pop(file_paths)
         wrapper = BrainvisionWrapper(current_files["headers"],
                                     current_files["logs"])
