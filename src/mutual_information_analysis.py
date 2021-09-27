@@ -351,7 +351,10 @@ def calculate_entropy(histogram):
 
 def calculate_joint_probabilties(histogram1, histogram2):
     """Given two histograms calculates the joint probabilities of their
-    elements.
+    elements. Joint probabilities can also be obtained calculating the
+    outer product of the probability vectors but the runtime of both
+    of the methods starting from histograms has been seen to be quite
+    similar.
 
     Arguments
     ----------
