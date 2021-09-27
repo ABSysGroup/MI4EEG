@@ -548,7 +548,7 @@ class BrainvisionWrapper:
 
                 segment_number += 1
             except Exception as error:
-                print("Something went wrong: " + str(error))
+                print("\nSomething went wrong: " + repr(error))
 
             bar.next()
         bar.finish()
