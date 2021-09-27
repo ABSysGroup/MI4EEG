@@ -308,7 +308,8 @@ class BrainvisionDat:
             segment_data = {}
             segment_data["metadata"] = segment
             for key in self.channels.keys():
-                segment_data[key] = self.channels[key][segment["start"]:segment["end"]]
+                segment_data[key] = self.channels[key][segment["start"]
+                    :segment["end"]]
             self.data_segments.append(segment_data)
         if release:
             del self.channels
@@ -489,9 +490,9 @@ class BrainvisionWrapper:
         difference = log_segments - vmkr_segments
 
         # Use file with least segments as "ground truth"
-        if difference > 0: # log file has more segments
+        if difference > 0:  # log file has more segments
             pass
-        else: # vmrk file has more segments
+        else:  # vmrk file has more segments
             pass
 
     def save_segmented_data(self, segments_folder_path: str):
