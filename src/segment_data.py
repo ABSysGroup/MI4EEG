@@ -65,11 +65,10 @@ def main(data_folder_path, segment_folder_path):
                                                         "*" + ending)))
 
     # Create progress bar to make script more friendly
-    bar = Bar('Segmenting data', max=len(file_paths["headers"])*2)
+    bar = Bar('Segmenting data', max=len(file_paths["headers"]))
 
     # Iterate until no more files are left
     while len(file_paths["headers"]) > 0:
-        bar.next()
         print("\n Working on " + file_paths["headers"][0])
         current_files = synched_pop(file_paths)
         wrapper = BrainvisionWrapper(current_files["headers"],
