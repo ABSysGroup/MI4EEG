@@ -4,16 +4,14 @@
 stored in .json files (given by segment_data.py) and audio files. And
 exports it in .json files and a little resport in an .md file.
 
-Three arguments are required when calling the script:
+Four arguments are required when calling the script:
  - the folder where the eeg segments are stored in the correct format
  - the folder where the audio files are stored (.wav format)
- - the folder where the results will be exported
+ - the path where the results will be exported. Should be a .json 
 
 Functions
 ----------
-
-TODO: Continue documentation!!!
-FIXME: Make script work
+TODO: Extend this docs
 """
 
 import copy
@@ -426,7 +424,26 @@ def compile_mi_dict(new_data_dict, compiled_dict={}):
     return compiled_dict
 
 
-def main(segments_folder_path, audio_files_folder_path, results_folder_path):
+def dump_eye_channels(channels_dict):
+    """Given a dictionary containing the EEG data with the labels being
+    the channel names, deletes the records regarding the eye channels.
+    Works IN-PLACE.
+
+    Arguments:
+    ----------
+    channels_dict: dict
+        Dictionary containing the EEG data
+
+    Returns
+    ----------
+    None
+    """
+    for label in ["HEOG", "HEOG+", "VEOG", "VEOG+"]:
+        if label in channels_dict.keys():
+            del channels_dict[label]
+
+
+def main(segments_folder_path, audio_files_folder_path, results_path):
     # Define constants for the analysis
     freq_ranges = {"delta": (1, 3), "theta_low": (3, 5),
                    "theta_high": (5, 7), "alpha": (7, 12),
@@ -447,7 +464,7 @@ def main(segments_folder_path, audio_files_folder_path, results_folder_path):
     # Get folder paths
     segments_folder = check_directory(segments_folder_path)
     audio_files_folder = check_directory(audio_files_folder_path)
-    results_folder = check_directory(results_folder_path)
+    results_folder = check_directory(os.path.split(results_path)[0])
 
     # Get the file paths
     file_formats = (("segments", ".json", segments_folder),
@@ -500,14 +517,18 @@ def main(segments_folder_path, audio_files_folder_path, results_folder_path):
                     mi_result, mi_odd_results)
         bar.next()
     bar.finish()
-    return (mi_face_results, mi_scrambled_results, mi_odd_results)
+
+    print(f"Saving data to {results_path}...")
+    results = (mi_face_results, mi_scrambled_results, mi_odd_results)
+    with open(results_path, "w") as jsonfile:
+        json.dump(results, jsonfile)
+
+    return results
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 5:
-        print("There should be 4 arguments passed. Check docs.")
+    if len(sys.argv) != 4:
+        print("There should be 3 arguments passed. Check docs.")
         sys.exit(1)
 
     results = main(sys.argv[1], sys.argv[2], sys.argv[3])
-    with open(sys.argv[4], "w") as jsonfile:
-        json.dump(results, jsonfile)
