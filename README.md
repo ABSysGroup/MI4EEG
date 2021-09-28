@@ -55,9 +55,17 @@ introduce systematic errors into the analysis.
 
 ### 3. Reading segments and computing Mutual Information
 
-This part has been developed in different files and an effort is
-currently in progress to create an easy to use script/notebook so that
-the analysis can be done without any issues and is properly reported.
+Mutual information analysis can be done with the `MI_analysis.py` script
+. It makes use of other code files and can be called from the terminal
+once execution is allowed. It only needs the folder where the segmented
+data is, the folder where the audio data is and the path of the results
+file (it will be created with the name given).
+
+### 4. Statistical analysis
+
+Statistical analysis of the data is externalised to python notebooks. 
+Some of them can be found inside the repository, but there is a current 
+effort of putting them together into something tidier.
 
 Files previously used (maybe not present in the current state of the
 repo) include `MI_calculation.py`, `Face-Noface changes.ipynb`, 
