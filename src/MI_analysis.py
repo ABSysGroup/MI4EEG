@@ -489,7 +489,7 @@ def main(segments_folder_path, audio_files_folder_path, results_folder_path):
             # TODO: Add automatic classification of categories
             # FIXME: Classification is not working, cannot do variance tests on this
             mi_result = compute_phase_MI(audio_data, audio_fs, segment,
-                                         phs_lims, freq_ranges,channels)
+                                         phs_lims, freq_ranges, channels)
             if segment["face_code"]//10 == 1:
                 mi_face_results = compile_mi_dict(mi_result, mi_face_results)
             elif segment["face_code"]//10 == 2:
